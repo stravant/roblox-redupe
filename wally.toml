@@ -1,0 +1,17 @@
+[package]
+name = "stravant/devcomment"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+Signal = "stravant/goodsignal@0.2.1"
+Maid = "nightcycle/maid@1.1.4"
+Iris = "sirmallard/iris@2.5.0"
+DraggerFramework = "stravant/draggerframework@0.1.4"
+DraggerSchemaCore = "stravant/draggerschemacore@0.1.5"
+RoactCompat = "jsdotlua/roact-compat@17.2.1"
+createSharedToolbar = "stravant/create-shared-toolbar@0.1.0"
+Roact = "roblox/roact@1.4.4"
+React = "jsdotlua/react@17.2.1"
+ReactRoblox = "jsdotlua/react-roblox@17.2.1"
