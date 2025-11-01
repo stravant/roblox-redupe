@@ -633,6 +633,7 @@ end
 
 function ExtrudeHandle:_updateHandles()
 	if not self._props.Visible() then
+		self._handles = {}
 		return
 	end
 	for handleId, handleDefinition in ScaleHandleDefinitions do
