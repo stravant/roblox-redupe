@@ -141,6 +141,10 @@ return function(plugin: Plugin)
 	useSpacingState:onChange(function(value)
 		activeSettings.UseSpacing = table.find(MAIN_MODE, value) == 2
 		session.Update()
+		-- Read back the copy count / spacing in case it changed due to preserving the
+		-- previewed copy count when changing modes.
+		copyCountState:set(activeSettings.CopyCount)
+		copySpacingState:set(activeSettings.CopySpacing)
 	end)
 	local multiplySnapByCountState = irisStateInTable(activeSettings, "MultilySnapByCount", function()
 		session.Update()
@@ -157,10 +161,16 @@ return function(plugin: Plugin)
 			Iris.Separator()
 			Iris.ComboArray({ "Mode" }, { index = useSpacingState }, MAIN_MODE)
 			if activeSettings.UseSpacing then
-				Iris.InputNum({"Spacing Multiplier"}, {
+				Iris.InputNum({
+					"Spacing Multiplier",
+					[Iris.Args.InputNum.Format] = "%.3fx",
+				}, {
 					number = copySpacingState,
 				})
-				Iris.InputNum({"Stud Padding", 1}, {
+				Iris.InputNum({
+					"Stud Padding", 1,
+					[Iris.Args.InputNum.Format] = "%.3fstuds",
+				}, {
 					number = copyPaddingState,
 				})
 			else

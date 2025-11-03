@@ -115,11 +115,15 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 	-- Get the bounds
 	local info = DraggerSchemaCore.SelectionInfo.new(draggerContext, targets)
-	local center, offset, size = info:getLocalBoundingBox()
+	local center, boundsOffset, size = info:getLocalBoundingBox()
 
-	local ghostPreview = createGhostPreview(targets, center, offset, size)
+	-- Kind of ugly, needed to make switching between modes work easily to
+	-- preserve the copy count.
+	local lastCopiesUsed: number? = nil
 
-	draggerContext.SetDraggingFunction = function(isDragging)
+	local ghostPreview = createGhostPreview(targets, center, boundsOffset, size)
+
+	draggerContext.SetDraggingFunction = function(_isDragging)
 	end
 	draggerContext.DragUpdatedSignal = Signal.new()
 
@@ -175,6 +179,31 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		draggerContext.EndDeltaPosition += deltaCopyCount * endDeltaPosition / (previousCopyCount - 1)
 
 		previousCopyCount = currentSettings.CopyCount
+	end
+
+	local previousMode = currentSettings.UseSpacing
+	local function maybeAdjustCopyCountUsingMode()
+		if currentSettings.UseSpacing == previousMode then
+			return
+		end
+
+		if currentSettings.UseSpacing then
+			-- Switch spacing. Update the spacing to result in what we last
+			-- generated.
+			if draggerContext.PrimaryAxis then
+				local offset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
+				local lengthOnAxis = math.abs(draggerContext.PrimaryAxis:Dot(offset))
+				local unPaddedLengthPer = ((lengthOnAxis / (lastCopiesUsed - 1)) - currentSettings.CopyPadding)
+				local spacing = unPaddedLengthPer / draggerContext.PrimaryAxis:Dot(size)
+				currentSettings.CopySpacing = spacing
+			end
+		else
+			-- Switch count. Update the count to what we last generated.
+			currentSettings.CopyCount = lastCopiesUsed
+			previousCopyCount = lastCopiesUsed
+		end
+
+		previousMode = currentSettings.UseSpacing
 	end
 
 	local function updateSnapSize()
@@ -244,6 +273,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		local copyCount
 		if draggerContext.PrimaryAxis == nil then
 			-- No primary axis set -> Haven't dragged -> Do nothing
+			lastCopiesUsed = nil
 			return
 		elseif currentSettings.UseSpacing then
 			local offset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
@@ -252,6 +282,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			copyCount = math.floor(offsetOnAxis / sizeOnAxis + 0.5) + 1
 		elseif currentSettings.CopyCount < 2 then
 			-- Nothing to create
+			lastCopiesUsed = nil
 			return
 		else
 			copyCount = currentSettings.CopyCount
@@ -268,6 +299,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		ghostPreview.trim()
 
 		-- Remember the copy count for snapping purposes
+		lastCopiesUsed = copyCount
 		draggerContext.SnapMultiplier = copyCount - 1
 	end
 
@@ -337,6 +369,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	end
 	session.Update = function()
 		draggerContext.UseSnapSize = currentSettings.UseSpacing
+		maybeAdjustCopyCountUsingMode()
 		updateSnapSize()
 		maybeAdjustPositionUsingCopyCount()
 		maybeAdjustPositionUsingCopySpacing()
