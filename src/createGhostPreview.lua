@@ -85,14 +85,18 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 			if target:IsA("Model") then
 				local itemModel = item :: Model
 				local targetModel = target :: Model
-				local offsetFromBase = cframe:ToObjectSpace(targetModel:GetPivot())
-				local scaledOffsetFromBase = offsetFromBase.Rotation + offsetFromBase.Position * scale
+				local extraOffsetFromSize = (targetSize - size) / 2
+				local offsetFromBase = cframe:ToObjectSpace(targetModel:GetPivot()) * CFrame.new(-extraOffsetFromSize)
+				local scaledOffsetFromBase = offsetFromBase.Rotation + offsetFromBase.Position
 				itemModel:PivotTo(targetCFrame * scaledOffsetFromBase)
 				itemModel:ScaleTo(target:GetScale() * scale)
 			elseif target:IsA("BasePart") then
+				local scale = targetSize / size
 				local itemPart = item :: BasePart
-				itemPart.CFrame = targetCFrame
-				itemPart.Size = targetSize
+				local targetPart = target :: BasePart
+				local offsetFromBase = cframe:ToObjectSpace(targetPart:GetPivot())
+				itemPart:PivotTo(targetCFrame * offsetFromBase)
+				itemPart.Size = scale * targetPart.Size
 			else
 				warn(`Unsupported target type {target.ClassName} for ghost preview`)
 			end
