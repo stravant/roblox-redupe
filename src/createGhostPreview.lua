@@ -10,7 +10,7 @@ type PoolItem = {
 	instances: { Instance },
 }
 
-local GHOST_TRANSPARENCY = 0.5
+local GHOST_TRANSPARENCY = 0.3
 
 local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset: Vector3, size: Vector3): GhostPreview
 	local pool: { PoolItem } = {}
