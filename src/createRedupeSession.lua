@@ -253,12 +253,23 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		if offset:FuzzyEq(Vector3.zero) then
 			-- Has not moved, clear axis
 			draggerContext.PrimaryAxis = nil
+
+			-- Also clear the size adjustment because we could have
+			-- a size adjustment that does not apply to the new axis
+			-- the user uses next.
+			draggerContext.EndDeltaSize = Vector3.zero
+			draggerContext.EndDeltaPosition = Vector3.zero
 			return
 		end
 		local largest = largestAxis(offset)
 		local leftover = offset - (largest * offset)
-		if leftover:FuzzyEq(Vector3.zero) then
+		if leftover:FuzzyEq(Vector3.zero, 0.001) then
 			-- Perfectly on an axis, lock it in
+			if largest ~= draggerContext.PrimaryAxis then
+				-- Clear size adjustment if changing axis
+				draggerContext.EndDeltaSize = Vector3.zero
+				draggerContext.EndDeltaPosition = Vector3.zero
+			end
 			draggerContext.PrimaryAxis = largest
 		else
 			-- Not perfectly on axis, leave things the way they were
@@ -266,9 +277,38 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		updateSnapSize()
 	end
 
+	local primaryAxisDisplay = Instance.new("WireframeHandleAdornment")
+	primaryAxisDisplay.Name = "RedupePrimaryAxisDisplay"
+	primaryAxisDisplay.Adornee = workspace.Terrain
+	primaryAxisDisplay.Parent = CoreGui
+	primaryAxisDisplay.AlwaysOnTop = true
+
+	local function updatePrimaryAxisDisplay()
+		primaryAxisDisplay:Clear()
+		if draggerContext.PrimaryAxis then
+			local color
+			if draggerContext.PrimaryAxis:FuzzyEq(Vector3.xAxis) then
+				color = Color3.fromRGB(255, 0, 0)
+			elseif draggerContext.PrimaryAxis:FuzzyEq(Vector3.yAxis) then
+				color = Color3.fromRGB(0, 255, 0)
+			else
+				color = Color3.fromRGB(0, 0, 255)
+			end
+			local endDisplayPosition = (draggerContext.EndCFrame * CFrame.new(draggerContext.EndDeltaPosition)).Position
+			local worldDirection = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.PrimaryAxis)
+			primaryAxisDisplay.Color3 = color
+			primaryAxisDisplay:AddLine(
+				(endDisplayPosition - worldDirection * 10000),
+				(endDisplayPosition + worldDirection * 10000)
+			)
+		end
+	end
+
 	local function updatePlacement(done: boolean)
 		-- Hide previous previews
 		ghostPreview.hide()
+
+		updatePrimaryAxisDisplay()
 
 		local copyCount
 		if draggerContext.PrimaryAxis == nil then
@@ -362,10 +402,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		screenGui:Destroy()
 		ghostPreview.hide()
 		ghostPreview.trim()
+		primaryAxisDisplay:Destroy()
 	end
 	session.Commit = function()
 		updatePlacement(true)
 		ChangeHistoryService:SetWaypoint("Redupe Commit")
+		primaryAxisDisplay:Destroy()
 	end
 	session.Update = function()
 		draggerContext.UseSnapSize = currentSettings.UseSpacing

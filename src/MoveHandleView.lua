@@ -25,6 +25,7 @@ local SCREENSPACE_HANDLE_SIZE = 6
 local HANDLE_DIM_TRANSPARENCY = 0.45
 local HANDLE_THIN_BY_FRAC = 0.34
 local HANDLE_THICK_BY_FRAC = 1.5
+local DOUBLE_EXTRA_RADIUS = 1.3
 
 function MoveHandleView:init()
 end
@@ -74,7 +75,7 @@ function MoveHandleView:render()
 			children.Head = Roact.createElement("ConeHandleAdornment", {
 				Adornee = Workspace.Terrain,
 				ZIndex = 0,
-				Radius = TIP_RADIUS_MULTIPLIER * radius,
+				Radius = TIP_RADIUS_MULTIPLIER * radius * (if doubleHandle then DOUBLE_EXTRA_RADIUS else 1),
 				Height = tipLength,
 				CFrame = coneAtCFrame,
 				Color3 = self.props.Color,
@@ -112,7 +113,7 @@ function MoveHandleView:render()
 			children.DimmedHead = Roact.createElement("ConeHandleAdornment", {
 				Adornee = Workspace.Terrain,
 				ZIndex = 0,
-				Radius = 3 * radius,
+				Radius = TIP_RADIUS_MULTIPLIER * radius * (if doubleHandle then DOUBLE_EXTRA_RADIUS else 1),
 				Height = tipLength,
 				CFrame = coneAtCFrame,
 				Color3 = self.props.Color,
@@ -124,7 +125,7 @@ function MoveHandleView:render()
 				children.DimmedHeadDupe = Roact.createElement("ConeHandleAdornment", {
 					Adornee = Workspace.Terrain,
 					ZIndex = 0,
-					Radius = 3 * radius,
+					Radius = TIP_RADIUS_MULTIPLIER * radius,
 					Height = tipLength,
 					CFrame = cone2AtCFrame,
 					Color3 = self.props.Color,

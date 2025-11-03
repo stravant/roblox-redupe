@@ -647,6 +647,7 @@ function ExtrudeHandle:_updateHandles()
 		local primaryAxis = self._draggerContext.PrimaryAxis
 		local isPrimaryAxis = primaryAxis and handleDefinition.LocalAxis:FuzzyEq(primaryAxis)
 		if isPrimaryAxis then
+			self._handles[handleId] = nil
 			continue
 		end
 		local handleBaseCFrame =
