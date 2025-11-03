@@ -1,3 +1,5 @@
+--!strict
+
 local CoreGui = game:GetService("CoreGui")
 local DraggerService = game:GetService("DraggerService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
@@ -10,6 +12,7 @@ local DraggerSchemaCore = require(Packages.DraggerSchemaCore)
 local Roact = require(Packages.Roact)
 
 local Settings = require(script.Parent.Settings)
+local createGhostPreview = require(script.Parent.createGhostPreview)
 
 local DraggerContext_PluginImpl = require(DraggerFramework.Implementation.DraggerContext_PluginImpl)
 local DraggerToolComponent = require(DraggerFramework.DraggerTools.DraggerToolComponent)
@@ -113,6 +116,8 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- Get the bounds
 	local info = DraggerSchemaCore.SelectionInfo.new(draggerContext, targets)
 	local center, offset, size = info:getLocalBoundingBox()
+
+	local ghostPreview = createGhostPreview(targets, center, offset, size)
 
 	draggerContext.SetDraggingFunction = function(isDragging)
 	end
@@ -232,12 +237,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		updateSnapSize()
 	end
 
-	local copies = {}
 	local function updatePlacement(done: boolean)
-		for _, copy in copies do
-			copy.Parent = nil
-		end
-		table.clear(copies)
+		-- Hide previous previews
+		ghostPreview.hide()
+
 		local copyCount
 		if draggerContext.PrimaryAxis == nil then
 			-- No primary axis set -> Haven't dragged -> Do nothing
@@ -253,31 +256,17 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		else
 			copyCount = currentSettings.CopyCount
 		end
-		local globalEndDeltaPosition = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
+		local endOffset = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
 		for i = 1, copyCount - 1 do
 			local t = i / (copyCount - 1)
 			local mid = draggerContext.StartCFrame:Lerp(draggerContext.EndCFrame, t)
-			local item = targets[1]:Clone() -- TODO: All of them
-			
-			item:PivotTo(mid + globalEndDeltaPosition * t)
-			if not draggerContext.EndDeltaSize:FuzzyEq(Vector3.zero) then
-				if item:IsA("Model") then
-					local delta = draggerContext.EndDeltaSize * t
-					local scaleVec = (size + delta) / size
-					local scale = math.max(scaleVec.X, scaleVec.Y, scaleVec.Z)
-					item:ScaleTo(item:GetScale() * scale)
-				elseif item:IsA("Part") then
-					item.Size = size + (draggerContext.EndDeltaSize * t)
-				end
-			end
-			item.Parent = targets[1].Parent
-			table.insert(copies, item)
+			local copyPosition = mid + endOffset * t
+			local copySize = size + (draggerContext.EndDeltaSize * t)
+			ghostPreview.create(not done, copyPosition, copySize)
 		end
-		if not done then
-			for _, item in copies do
-				setTransparency(item, 0.8)
-			end
-		end
+
+		ghostPreview.trim()
+
 		-- Remember the copy count for snapping purposes
 		draggerContext.SnapMultiplier = copyCount - 1
 	end
@@ -339,13 +328,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	session.Destroy = function()
 		Roact.unmount(handle)
 		screenGui:Destroy()
-		for _, instance in copies do
-			instance.Parent = nil
-		end
+		ghostPreview.hide()
+		ghostPreview.trim()
 	end
 	session.Commit = function()
 		updatePlacement(true)
-		copies = {}
 		ChangeHistoryService:SetWaypoint("Redupe Commit")
 	end
 	session.Update = function()

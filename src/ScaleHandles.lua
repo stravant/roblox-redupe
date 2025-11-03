@@ -315,7 +315,6 @@ function ExtrudeHandle:_getBoundingBoxColor()
 		self._scalingLimitReachedLower or
 		self._resizeWasConstrained
 	then
-		print("It?", self._resizeWasConstrained)
 		return Colors.SizeLimitReached
 	end
 	return self._draggerContext:getSelectionBoxColor()
