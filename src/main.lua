@@ -160,7 +160,7 @@ return function(plugin: Plugin)
 
 	function mainRender()
 		if session then
-			Iris.Text("Configure duplicate")
+			Iris.Text("Drag the handles around the selection\nto add or adjust duplicates")
 			if Iris.Button("Done").clicked() then
 				session.Commit()
 				destroySession()
