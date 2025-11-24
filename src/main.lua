@@ -84,6 +84,12 @@ return function(plugin: Plugin)
 				plugin:Activate(true)
 				pluginActive = true
 			end
+		else
+			-- Force a ribbon tool to be selected so that the user can easily modify
+			-- the selection to have something to duplicate selected.
+			if plugin:GetSelectedRibbonTool() == Enum.RibbonTool.None then
+				plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.new())
+			end
 		end
 	end
 
@@ -122,7 +128,6 @@ return function(plugin: Plugin)
 			Iris.End()
 		end)
 	end
-
 
 	local copyCountState = irisStateInTable(activeSettings, "CopyCount", function()
 		session.Update()
