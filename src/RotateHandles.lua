@@ -77,7 +77,7 @@ local function getRotationTransform(mainCFrame, axisVector, delta, rotateIncreme
 	end
 
 	-- Convert the rotation to a global space transformation
-	return rotationCFrame, mainCFrame * rotationCFrame * mainCFrame:Inverse()
+	return mainCFrame * rotationCFrame * mainCFrame:Inverse()
 end
 
 --[[
@@ -385,20 +385,20 @@ function RotateHandles:mouseDrag(mouseRay)
 		snapToRotateIncrementIfNeeded(angle, self._draggerContext:getRotateIncrement())
 
 	local snappedDelta = snappedAngle - self._startAngle
-	local localRotation, candidateGlobalTransform = getRotationTransform(
-		getEngineFeatureModelPivotVisual() and self._handleCFrame or self._originalBoundingBoxCFrame,
+	local candidateGlobalTransform = getRotationTransform(
+		self._handleCFrame,
 		self._handleCFrame.RightVector,
 		snappedDelta,
 		self._draggerContext:getRotateIncrement())
 
-	-- local appliedGlobalTransform =
-	-- 	self._implementation:updateDrag(candidateGlobalTransform)
-	print("Applying rotation:", localRotation)
-	self._props.ApplyTransform(localRotation)
 	local appliedGlobalTransform = candidateGlobalTransform
 
 	-- Adjust the bounding box
 	self._boundingBox.CFrame = appliedGlobalTransform * self._originalBoundingBoxCFrame
+
+	local localRotation = self._originalBoundingBoxCFrame:ToObjectSpace(self._boundingBox.CFrame)
+	self._props.ApplyTransform(localRotation)
+
 	self._lastGlobalTransformForRender = appliedGlobalTransform
 
 	-- Derive the applied rotation angle (we need to display this in the

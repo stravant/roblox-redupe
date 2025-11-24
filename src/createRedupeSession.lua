@@ -13,13 +13,13 @@ local Roact = require(Packages.Roact)
 
 local Settings = require(script.Parent.Settings)
 local createGhostPreview = require(script.Parent.createGhostPreview)
+local bendPlacement = require(script.Parent.bendPlacement)
 
 local DraggerContext_PluginImpl = require(DraggerFramework.Implementation.DraggerContext_PluginImpl)
 local DraggerToolComponent = require(DraggerFramework.DraggerTools.DraggerToolComponent)
 local MoveHandles = require(script.Parent.MoveHandles)
 local ScaleHandles = require(script.Parent.ScaleHandles)
 local RotateHandles = require(script.Parent.RotateHandles)
-local TransformHandlesImplementation = require(script.Parent.TranformHandlesImplementation)
 
 local function createCFrameDraggerSchema(getBoundingBoxFromContextFunc)
 	local schema = table.clone(DraggerSchemaCore)
@@ -285,8 +285,15 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	primaryAxisDisplay.Parent = CoreGui
 	primaryAxisDisplay.AlwaysOnTop = true
 
+	local rotatedAxisDisplay = Instance.new("WireframeHandleAdornment")
+	rotatedAxisDisplay.Name = "RedupeRotatedAxisDisplay"
+	rotatedAxisDisplay.Adornee = workspace.Terrain
+	rotatedAxisDisplay.Parent = CoreGui
+	rotatedAxisDisplay.AlwaysOnTop = true
+
 	local function updatePrimaryAxisDisplay()
 		primaryAxisDisplay:Clear()
+		rotatedAxisDisplay:Clear()
 		if draggerContext.PrimaryAxis then
 			local color
 			if draggerContext.PrimaryAxis:FuzzyEq(Vector3.xAxis) then
@@ -303,6 +310,16 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				(endDisplayPosition - worldDirection * 10000),
 				(endDisplayPosition + worldDirection * 10000)
 			)
+
+			if not draggerContext.RotationCFrame:FuzzyEq(CFrame.identity) then
+				local startDisplayPosition = draggerContext.StartCFrame.Position
+				local worldRotatedDirection = (draggerContext.StartCFrame * draggerContext.RotationCFrame):VectorToWorldSpace(draggerContext.PrimaryAxis)
+				rotatedAxisDisplay.Color3 = Color3.new(1, 1, 1)
+				rotatedAxisDisplay:AddLine(
+					(startDisplayPosition - worldRotatedDirection * 10000),
+					(startDisplayPosition + worldRotatedDirection * 10000)
+				)
+			end
 		end
 	end
 
@@ -347,12 +364,39 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		end
 
 		local endOffset = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
+		local placements = {}
 		for i = 1, copyCount - 1 do
 			local t = i / (copyCount - 1)
 			local mid = draggerContext.StartCFrame:Lerp(draggerContext.EndCFrame, t)
 			local copyPosition = mid + endOffset * t
 			local copySize = size + (draggerContext.EndDeltaSize * t)
-			ghostPreview.create(not done, copyPosition, copySize)
+			table.insert(placements, {
+				Position = copyPosition,
+				Size = copySize,
+				Offset = CFrame.new(),
+				PreviousSize = Vector3.new(),
+			})
+		end
+
+		-- Convert positions to offsets and apply bending
+		for i, placement in placements do
+			if i == 1 then
+				placement.Offset = draggerContext.StartCFrame:ToObjectSpace(placement.Position)
+				placement.PreviousSize = size
+			else
+				placement.Offset = placements[i - 1].Position:ToObjectSpace(placement.Position)
+				placement.PreviousSize = placements[i - 1].Size
+			end
+
+			-- Do the bending
+			bendPlacement(placement, draggerContext.PrimaryAxis, draggerContext.RotationCFrame)
+		end
+
+		-- Place using offsets
+		local runningPosition = draggerContext.StartCFrame
+		for _, placement in placements do
+			runningPosition *= placement.Offset
+			ghostPreview.create(not done, runningPosition, placement.Size)
 		end
 
 		ghostPreview.trim()
@@ -440,11 +484,13 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		ghostPreview.hide()
 		ghostPreview.trim()
 		primaryAxisDisplay:Destroy()
+		rotatedAxisDisplay:Destroy()
 	end
 	session.Commit = function()
 		updatePlacement(true)
 		ChangeHistoryService:SetWaypoint("Redupe Commit")
 		primaryAxisDisplay:Destroy()
+		rotatedAxisDisplay:Destroy()
 	end
 	session.Update = function()
 		draggerContext.UseSnapSize = currentSettings.UseSpacing
