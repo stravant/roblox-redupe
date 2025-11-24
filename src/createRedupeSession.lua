@@ -201,8 +201,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			end
 		else
 			-- Switch count. Update the count to what we last generated.
-			currentSettings.CopyCount = lastCopiesUsed
-			previousCopyCount = lastCopiesUsed
+			if lastCopiesUsed then
+				currentSettings.CopyCount = lastCopiesUsed
+				previousCopyCount = lastCopiesUsed
+			end
 		end
 
 		previousMode = currentSettings.UseSpacing

@@ -129,7 +129,9 @@ return function(plugin: Plugin)
 		end)
 	end
 
-	local copyCountState = irisStateInTable(activeSettings, "CopyCount", function()
+	local copyCountState
+	copyCountState = irisStateInTable(activeSettings, "CopyCount", function()
+		print("Copy count update->", copyCountState:get())
 		session.Update()
 	end)
 	local copySpacingState = irisStateInTable(activeSettings, "CopySpacing", function()
@@ -148,6 +150,7 @@ return function(plugin: Plugin)
 		session.Update()
 		-- Read back the copy count / spacing in case it changed due to preserving the
 		-- previewed copy count when changing modes.
+		assert(activeSettings.CopyCount, "Missing copy count")
 		copyCountState:set(activeSettings.CopyCount)
 		copySpacingState:set(activeSettings.CopySpacing)
 	end)
