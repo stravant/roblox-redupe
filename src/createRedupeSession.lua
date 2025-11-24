@@ -18,6 +18,7 @@ local DraggerContext_PluginImpl = require(DraggerFramework.Implementation.Dragge
 local DraggerToolComponent = require(DraggerFramework.DraggerTools.DraggerToolComponent)
 local MoveHandles = require(script.Parent.MoveHandles)
 local ScaleHandles = require(script.Parent.ScaleHandles)
+local RotateHandles = require(script.Parent.RotateHandles)
 local TransformHandlesImplementation = require(script.Parent.TranformHandlesImplementation)
 
 local function createCFrameDraggerSchema(getBoundingBoxFromContextFunc)
@@ -137,6 +138,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	draggerContext.StartEndResizeSize = nil
 	draggerContext.StartEndResizePosition = nil
 	draggerContext.UseSnapSize = currentSettings.UseSpacing
+	draggerContext.RotationCFrame = CFrame.identity
 
 	-- Patch snapping to support a mulitplier
 	draggerContext.SnapMultiplier = 1
@@ -304,29 +306,46 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		end
 	end
 
-	local function updatePlacement(done: boolean)
-		-- Hide previous previews
-		ghostPreview.hide()
-
-		updatePrimaryAxisDisplay()
-
-		local copyCount
+	local function getCopyCount(): number?
 		if draggerContext.PrimaryAxis == nil then
 			-- No primary axis set -> Haven't dragged -> Do nothing
-			lastCopiesUsed = nil
-			return
+			return nil
 		elseif currentSettings.UseSpacing then
 			local offset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
 			local offsetOnAxis = (draggerContext.PrimaryAxis * offset).Magnitude
 			local sizeOnAxis = (draggerContext.PrimaryAxis * draggerContext.SnapSize).Magnitude
-			copyCount = math.floor(offsetOnAxis / sizeOnAxis + 0.5) + 1
+			return math.floor(offsetOnAxis / sizeOnAxis + 0.5) + 1
 		elseif currentSettings.CopyCount < 2 then
 			-- Nothing to create
+			return nil
+		else
+			return currentSettings.CopyCount
+		end
+	end
+
+	local function maybeUpdateSizeAdjustments(previousCount: number?, newCount: number?)
+		if previousCount == newCount or previousCount == nil or newCount == nil then
+			return
+		end
+		local oldSizePer = draggerContext.EndDeltaSize / (previousCount - 1)
+		local oldOffsetPer = draggerContext.EndDeltaPosition / (previousCount - 1)
+		draggerContext.EndDeltaSize = oldSizePer * (newCount - 1)
+		draggerContext.EndDeltaPosition = oldOffsetPer * (newCount - 1)
+	end
+
+	local function updatePlacement(done: boolean)
+		ghostPreview.hide()
+
+		updatePrimaryAxisDisplay()
+
+		local copyCount = getCopyCount()
+		if copyCount then
+			lastCopiesUsed = copyCount
+		else
 			lastCopiesUsed = nil
 			return
-		else
-			copyCount = currentSettings.CopyCount
 		end
+
 		local endOffset = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
 		for i = 1, copyCount - 1 do
 			local t = i / (copyCount - 1)
@@ -339,7 +358,6 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		ghostPreview.trim()
 
 		-- Remember the copy count for snapping purposes
-		lastCopiesUsed = copyCount
 		draggerContext.SnapMultiplier = copyCount - 1
 	end
 
@@ -376,6 +394,23 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						return draggerContext.PrimaryAxis ~= nil and #targets == 1
 					end,
 				}),
+				RotateHandles.new(draggerContext, {
+					GetBoundingBox = function()
+						return draggerContext.StartCFrame * draggerContext.RotationCFrame,
+							Vector3.zero,
+							Vector3.zero
+					end,
+					StartTransform = function()
+						draggerContext.StartDragCFrame = draggerContext.RotationCFrame
+					end,
+					ApplyTransform = function(localTransform: CFrame)
+						draggerContext.RotationCFrame = draggerContext.StartDragCFrame * localTransform
+						updatePlacement(false)
+					end,
+					Visible = function()
+						return draggerContext.PrimaryAxis ~= nil
+					end,
+				}),
 				MoveHandles.new(draggerContext, {
 					GetBoundingBox = function()
 						return draggerContext.EndCFrame * CFrame.new(draggerContext.EndDeltaPosition),
@@ -386,8 +421,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						draggerContext.StartDragCFrame = draggerContext.EndCFrame
 					end,
 					ApplyTransform = function(globalTransform: CFrame)
+						local previousCopyCount = getCopyCount()
 						draggerContext.EndCFrame = globalTransform * draggerContext.StartDragCFrame
 						updatePrimaryAxis()
+						maybeUpdateSizeAdjustments(previousCopyCount, getCopyCount())
 						updatePlacement(false)
 					end,
 				}),
