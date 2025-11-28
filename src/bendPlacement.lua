@@ -5,6 +5,14 @@ export type Placement = {
     Offset: CFrame,
 }
 
+local function approxSign(n: number)
+    if math.abs(n) < 0.001 then
+        return 0
+    else
+        return math.sign(n)
+    end
+end
+
 local function bendPlacement(placement: Placement, axis: Vector3, relativeBend: CFrame, touchSide: number)
     local relativeOffset = placement.Offset
     local referenceSize = placement.PreviousSize
@@ -15,7 +23,7 @@ local function bendPlacement(placement: Placement, axis: Vector3, relativeBend: 
     local xDir = relativeBend.XVector:Dot(forwardAxis)
     local yDir = relativeBend.YVector:Dot(forwardAxis)
     local zDir = relativeBend.ZVector:Dot(forwardAxis)
-    local directions = Vector3.new(xDir, yDir, zDir):Sign()
+    local directions = Vector3.new(approxSign(xDir), approxSign(yDir), approxSign(zDir))
 
     local perpOffset = CFrame.new(perpSize * directions * touchSide * 0.5)
     local paraOffset = CFrame.new(forwardAxis * referenceSize * 0.5)
