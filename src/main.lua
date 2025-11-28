@@ -131,13 +131,15 @@ return function(plugin: Plugin)
 
 	local copyCountState
 	copyCountState = irisStateInTable(activeSettings, "CopyCount", function()
-		print("Copy count update->", copyCountState:get())
 		session.Update()
 	end)
 	local copySpacingState = irisStateInTable(activeSettings, "CopySpacing", function()
 		session.Update()
 	end)
 	local copyPaddingState = irisStateInTable(activeSettings, "CopyPadding", function()
+		session.Update()
+	end)
+	local touchSide = irisStateInTable(activeSettings, "TouchSide", function()
 		session.Update()
 	end)
 	local MAIN_MODE = {
@@ -190,6 +192,12 @@ return function(plugin: Plugin)
 				})
 			end
 			Iris.Checkbox({"Multiply snap by count"}, { isChecked = multiplySnapByCountState })
+			Iris.Separator()
+			Iris.InputNum({
+				"Touch Side",
+			}, {
+				number = touchSide,
+			})
 		else
 			Iris.TextWrapped({"Select one or more objects to duplicate to begin"})
 		end

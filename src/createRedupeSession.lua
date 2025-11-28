@@ -391,7 +391,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			end
 
 			-- Do the bending
-			bendPlacement(placement, draggerContext.PrimaryAxis, draggerContext.RotationCFrame)
+			bendPlacement(placement, draggerContext.PrimaryAxis, draggerContext.RotationCFrame, currentSettings.TouchSide)
 		end
 
 		-- Place using offsets

@@ -10,6 +10,7 @@ export type RedupeSettings = {
 	CopyPadding: number,
 	UseSpacing: boolean,
 	MultilySnapByCount: boolean,
+	TouchSide: number,
 }
 
 local function loadSettings(plugin: Plugin): RedupeSettings
@@ -29,6 +30,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		CopyPadding = raw.CopyPadding or 0,
 		UseSpacing = raw.UseSpacing or false,
 		MultilySnapByCount = if raw.MultilySnapByCount == nil then true else raw.MultilySnapByCount,
+		TouchSide = raw.TouchSide or 1,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)
@@ -43,6 +45,7 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 		CopyPadding = settings.CopyPadding,
 		UseSpacing = settings.UseSpacing,
 		MultilySnapByCount = settings.MultilySnapByCount,
+		TouchSide = settings.TouchSide,
 	})
 end
 

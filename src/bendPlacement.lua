@@ -5,17 +5,24 @@ export type Placement = {
     Offset: CFrame,
 }
 
-local function bendPlacement(placement: Placement, axis: Vector3, angles: CFrame)
-    -- Divide the offset proportionally based on size (this approach works even if
-    -- there is overlap between the two)
-    local offset = placement.Offset
-    local sizeA = placement.PreviousSize:Dot(axis)
-    local sizeB = placement.Size:Dot(axis)
-    local fracA = sizeA / (sizeA + sizeB)
-    local offsetA = CFrame.new():Lerp(offset, fracA)
-    local offsetB = offsetA:ToObjectSpace(offset)
+local function bendPlacement(placement: Placement, axis: Vector3, relativeBend: CFrame, touchSide: number)
+    local relativeOffset = placement.Offset
+    local referenceSize = placement.PreviousSize
+    local paraSize = referenceSize:Dot(axis)
+    local perpSize = referenceSize - axis * paraSize
 
-    placement.Offset = offsetA * angles * offsetB
+    local forwardAxis = if axis:Dot(relativeOffset.Position) > 0 then axis else -axis
+    local xDir = relativeBend.XVector:Dot(forwardAxis)
+    local yDir = relativeBend.YVector:Dot(forwardAxis)
+    local zDir = relativeBend.ZVector:Dot(forwardAxis)
+    local directions = Vector3.new(xDir, yDir, zDir):Sign()
+
+    local perpOffset = CFrame.new(perpSize * directions * touchSide * 0.5)
+    local paraOffset = CFrame.new(forwardAxis * referenceSize * 0.5)
+    local offsetA = perpOffset * paraOffset
+    local offsetB = offsetA:Inverse() * relativeOffset
+
+    placement.Offset = offsetA * relativeBend * offsetB
 end
 
 return bendPlacement
