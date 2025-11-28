@@ -21,6 +21,8 @@ local MoveHandles = require(script.Parent.MoveHandles)
 local ScaleHandles = require(script.Parent.ScaleHandles)
 local RotateHandles = require(script.Parent.RotateHandles)
 
+local ROTATE_GRANULARITY_MULTIPLIER = 2
+
 local function createCFrameDraggerSchema(getBoundingBoxFromContextFunc)
 	local schema = table.clone(DraggerSchemaCore)
 	schema.getMouseTarget = function()
@@ -450,7 +452,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						draggerContext.StartDragCFrame = draggerContext.RotationCFrame
 					end,
 					ApplyTransform = function(localTransform: CFrame)
-						local result = draggerContext.StartDragCFrame * localTransform
+
+						-- Take only half the rotation to provide more precision
+						local halfRotation = CFrame.new():Lerp(localTransform, 1 / ROTATE_GRANULARITY_MULTIPLIER)
+						local result = draggerContext.StartDragCFrame * halfRotation
 						-- For rotations we have to orthonormalize to avoid accumulating
 						-- catastrophic skew because skew accumulates exponentially per
 						-- operation.
@@ -460,6 +465,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 					Visible = function()
 						return draggerContext.PrimaryAxis ~= nil
 					end,
+SnapGranularityMultiplier = ROTATE_GRANULARITY_MULTIPLIER,
 				}),
 				MoveHandles.new(draggerContext, {
 					GetBoundingBox = function()

@@ -222,7 +222,7 @@ end
 function RotateHandles:render(hoveredHandleId)
 	local children = {}
 
-	local increment = self._draggerContext:getRotateIncrement()
+	local increment = self._draggerContext:getRotateIncrement() * self._props.SnapGranularityMultiplier
 	local tickAngle
 	if increment >= MIN_ROTATE_INCREMENT then
 		tickAngle = math.rad(increment)
@@ -365,7 +365,7 @@ function RotateHandles:mouseDown(mouseRay, handleId)
 	self._draggingLastGoodDelta = 0
 	self._originalBoundingBoxCFrame = self._boundingBox.CFrame
 	self._startAngle = snapToRotateIncrementIfNeeded(
-		angle, self._draggerContext:getRotateIncrement())
+		angle, self._draggerContext:getRotateIncrement() * self._props.SnapGranularityMultiplier)
 
 	--self._implementation:beginDrag(self._selectionWrapper:get(), self._selectionInfo)
 	self._props.StartTransform()
@@ -382,7 +382,7 @@ function RotateHandles:mouseDrag(mouseRay)
 		return
 	end
 	local snappedAngle =
-		snapToRotateIncrementIfNeeded(angle, self._draggerContext:getRotateIncrement())
+		snapToRotateIncrementIfNeeded(angle, self._draggerContext:getRotateIncrement() * self._props.SnapGranularityMultiplier)
 
 	local snappedDelta = snappedAngle - self._startAngle
 	local candidateGlobalTransform = getRotationTransform(
