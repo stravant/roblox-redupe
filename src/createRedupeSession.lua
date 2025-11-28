@@ -450,7 +450,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						draggerContext.StartDragCFrame = draggerContext.RotationCFrame
 					end,
 					ApplyTransform = function(localTransform: CFrame)
-						draggerContext.RotationCFrame = draggerContext.StartDragCFrame * localTransform
+						local result = draggerContext.StartDragCFrame * localTransform
+						-- For rotations we have to orthonormalize to avoid accumulating
+						-- catastrophic skew because skew accumulates exponentially per
+						-- operation.
+						draggerContext.RotationCFrame = result:Orthonormalize()
 						updatePlacement(false)
 					end,
 					Visible = function()
