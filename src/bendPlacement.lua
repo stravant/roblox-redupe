@@ -1,5 +1,6 @@
 export type Placement = {
     Position: CFrame,
+    BoundsOffset: Vector3,
     Size: Vector3,
     PreviousSize: Vector3,
     Offset: CFrame,
@@ -30,7 +31,8 @@ local function bendPlacement(placement: Placement, axis: Vector3, relativeBend: 
     local offsetA = perpOffset * paraOffset
     local offsetB = offsetA:Inverse() * relativeOffset
 
-    placement.Offset = offsetA * relativeBend * offsetB
+    local boundsOffset = CFrame.new(placement.BoundsOffset)
+    placement.Offset = offsetA * boundsOffset * relativeBend * offsetB * boundsOffset:Inverse()
 end
 
 return bendPlacement

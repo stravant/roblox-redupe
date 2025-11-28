@@ -376,6 +376,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			local copySize = size + (draggerContext.EndDeltaSize * t)
 			table.insert(placements, {
 				Position = copyPosition,
+				BoundsOffset = boundsOffset,
 				Size = copySize,
 				Offset = CFrame.new(),
 				PreviousSize = Vector3.new(),
@@ -465,7 +466,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 					Visible = function()
 						return draggerContext.PrimaryAxis ~= nil
 					end,
-SnapGranularityMultiplier = ROTATE_GRANULARITY_MULTIPLIER,
+					SnapGranularityMultiplier = ROTATE_GRANULARITY_MULTIPLIER,
 				}),
 				MoveHandles.new(draggerContext, {
 					GetBoundingBox = function()
