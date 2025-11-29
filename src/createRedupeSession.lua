@@ -10,6 +10,7 @@ local Signal = require(Packages.Signal)
 local DraggerFramework = require(Packages.DraggerFramework)
 local DraggerSchemaCore = require(Packages.DraggerSchemaCore)
 local Roact = require(Packages.Roact)
+local Signal = require(Packages.Signal)
 
 local Settings = require(script.Parent.Settings)
 local createGhostPreview = require(script.Parent.createGhostPreview)
@@ -77,17 +78,6 @@ local function createFixedSelection(selection: { Instance })
 	}
 end
 
-local function setTransparency(instance: Instance, transparency: number)
-	if instance:IsA("BasePart") then
-		instance.Transparency = transparency
-	end
-	for _, desc in instance:GetDescendants() do
-		if desc:IsA("BasePart") then
-			desc.Transparency = transparency
-		end
-	end
-end
-
 local function largestAxis(v: Vector3): Vector3
 	local absV = v:Abs()
 	if absV.X > absV.Y and absV.X > absV.Z then
@@ -105,6 +95,8 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "RedupeSessionDraggers"
 	screenGui.Parent = CoreGui
+
+	local changeSignal = Signal.new()
 
 	local fixedSelection = createFixedSelection(targets)
 
@@ -437,6 +429,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						draggerContext.EndDeltaSize = draggerContext.StartEndResizeSize + deltaSize
 						draggerContext.EndDeltaPosition = draggerContext.StartEndResizePosition + deltaOffset
 						updatePlacement(false)
+						changeSignal:Fire()
 					end,
 					Visible = function()
 						-- Only allow resizing when we have a single target
@@ -453,7 +446,6 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						draggerContext.StartDragCFrame = draggerContext.RotationCFrame
 					end,
 					ApplyTransform = function(localTransform: CFrame)
-
 						-- Take only half the rotation to provide more precision
 						local halfRotation = CFrame.new():Lerp(localTransform, 1 / ROTATE_GRANULARITY_MULTIPLIER)
 						local result = draggerContext.StartDragCFrame * halfRotation
@@ -462,6 +454,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						-- operation.
 						draggerContext.RotationCFrame = result:Orthonormalize()
 						updatePlacement(false)
+						changeSignal:Fire()
 					end,
 					Visible = function()
 						return draggerContext.PrimaryAxis ~= nil
@@ -483,6 +476,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						updatePrimaryAxis()
 						maybeUpdateSizeAdjustments(previousCopyCount, getCopyCount())
 						updatePlacement(false)
+						changeSignal:Fire()
 					end,
 				}),
 			},
@@ -514,6 +508,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		updatePlacement(false)
 		fixedSelection.SelectionChanged:Fire() -- Cause a dragger update
 	end
+	session.ChangeSignal = changeSignal
 	return session
 end
 

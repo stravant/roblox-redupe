@@ -11,6 +11,9 @@ local Iris = require(Packages.Iris)
 
 local createRedupeSession = require(script.Parent.createRedupeSession)
 local Settings = require(script.Parent.Settings)
+local MainGui = require(script.Parent.MainGui)
+local React = require(Packages.React)
+local ReactRoblox = require(Packages.ReactRoblox)
 
 local function getFilteredSelection(): { Instance }
 	local selection = Selection:Get()
@@ -52,6 +55,9 @@ return function(plugin: Plugin)
 	local selectionChangedCn = nil
 	local pluginActive = false
 
+	local reactRoot;
+	local reactScreenGui;
+
 	local function destroyUI()
 		button:SetActive(false)
 		if irisDestroy then
@@ -61,6 +67,30 @@ return function(plugin: Plugin)
 		if selectionChangedCn then
 			selectionChangedCn:Disconnect()
 			selectionChangedCn = nil
+		end
+		if reactRoot then
+			reactRoot:unmount()
+			reactRoot = nil
+			reactScreenGui:Destroy()
+			reactScreenGui = nil
+		end
+	end
+
+	local handleAction: (string) -> () = nil
+
+	local function updateUI()
+		if reactRoot then
+			reactRoot:render(React.createElement(MainGui, {
+				HasSession = session ~= nil,
+				CurrentSettings = activeSettings,
+				UpdatedSettings = function()
+					if session then
+						session.Update()
+					end
+					updateUI()
+				end,
+				HandleAction = handleAction,
+			}))
 		end
 	end
 
@@ -78,6 +108,8 @@ return function(plugin: Plugin)
 		local targets = getFilteredSelection()
 		if #targets > 0 then
 			session = createRedupeSession(plugin, targets, activeSettings)
+			session.ChangeSignal:Connect(updateUI)
+			updateUI()
 
 			-- Activate the plugin here, only after we have a session
 			if not pluginActive then
@@ -127,6 +159,12 @@ return function(plugin: Plugin)
 			mainRender()
 			Iris.End()
 		end)
+		reactScreenGui = Instance.new("ScreenGui")
+		reactScreenGui.Name = "RedupeReactUI"
+		reactScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		reactScreenGui.Parent = CoreGui
+		reactRoot = ReactRoblox.createRoot(reactScreenGui)
+		updateUI()
 	end
 
 	local copyCountState
@@ -201,6 +239,10 @@ return function(plugin: Plugin)
 		else
 			Iris.TextWrapped({"Select one or more objects to duplicate to begin"})
 		end
+	end
+
+	function handleAction(action: string)
+		print("Handle action:", action)
 	end
 
 	-- Always get a fresh session when the user clicks the button to provide
