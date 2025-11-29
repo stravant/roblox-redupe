@@ -19,6 +19,8 @@ type Path2DControlPoint = {
 }
 local Path2DControlPoint = Path2DControlPoint
 
+local HelpContext = React.createContext(nil)
+
 local BLACK = Color3.fromRGB(0, 0, 0)
 local WHITE = Color3.fromRGB(255, 255, 255)
 local DARK_RED = Color3.new(0.705882, 0, 0)
@@ -169,6 +171,55 @@ local function OperationButton(props: {
 	})
 end
 
+local function WithHelpIcon(props: {
+	Subject: React.ReactElement<any, any>,
+	Help: React.ReactElement<any, any>,
+	LayoutOrder: number?,
+})
+	local helpContext = React.useContext(HelpContext)
+	local hovered, setHovered = React.useState(false)
+
+	return e("Frame", {
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		LayoutOrder = props.LayoutOrder,
+	}, {
+		Layout = e("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 4),
+		}),
+		Subject = e("Frame", {
+			Size = UDim2.fromScale(0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			LayoutOrder = 2,
+		}, {
+			Subject = props.Subject,
+			Flex = e("UIFlexItem", {
+				FlexMode = Enum.UIFlexMode.Grow,
+			}),
+		}),
+		Help = helpContext.HaveHelp and e("ImageLabel", {
+			Size = UDim2.fromOffset(16, 16),
+			Image = "rbxassetid://10717855468",
+			ImageColor3 = if hovered then ACTION_BLUE else WHITE,
+			BackgroundTransparency = 1,
+			LayoutOrder = 1,
+			[React.Event.MouseEnter] = function()
+				helpContext.SetHelpMessage(props.Help)
+				setHovered(true)
+			end,
+			[React.Event.MouseLeave] = function()
+				helpContext.SetHelpMessage(nil)
+				setHovered(false)
+			end,
+		}),
+	})
+end
+
 local function OperationPanel(props: {
 	HandleAction: (string) -> (),
 	LayoutOrder: number?,
@@ -201,23 +252,29 @@ local function OperationPanel(props: {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
 				}),
-				DoneButton = e(OperationButton, {
-					Text = "PLACE & EXIT",
-					Color = ACTION_BLUE,
-					Height = 24,
+				DoneButton = e(WithHelpIcon, {
+					Help = "Test",
+					Subject = e(OperationButton, {
+						Text = "PLACE & EXIT",
+						Color = ACTION_BLUE,
+						Height = 24,
+						OnClick = function()
+							props.HandleAction("done")
+						end,
+					}),
 					LayoutOrder = 1,
-					OnClick = function()
-						props.HandleAction("done")
-					end,
 				}),
-				StampButton = e(OperationButton, {
-					Text = "STAMP & REPEAT",
-					Color = ACTION_BLUE,
-					Height = 24,
+				StampButton = e(WithHelpIcon, {
+					Help = "Test",
+					Subject = e(OperationButton, {
+						Text = "STAMP & REPEAT",
+						Color = ACTION_BLUE,
+						Height = 24,
+						OnClick = function()
+							props.HandleAction("stamp")
+						end,
+					}),
 					LayoutOrder = 2,
-					OnClick = function()
-						props.HandleAction("stamp")
-					end,
 				}),
 			}),
 			Right = e("Frame", {
@@ -295,8 +352,6 @@ local function SessionView(props: {
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 })
-	local showHelp, setShowHelp = React.useState(false)
-
 	local session = props.Session
 	return e("Frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -346,25 +401,49 @@ local function EmptySessionView()
 	})
 end
 
+local function HelpDisplay(props: {
+
+})
+	local helpContext = React.useContext(HelpContext)
+	print("Show help:", helpContext.HelpMessage)
+	return nil
+end
+
 local function MainGui(props: {
 	HasSession: boolean,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 })
+	local helpMessage, setHelpMessage = React.useState(nil :: string?)
+	local haveHelp, setHaveHelp = React.useState(true)
+	local helpContext = React.useMemo(function()
+		return {
+			HelpMessage = helpMessage,
+			SetHelpMessage = setHelpMessage,
+			HaveHelp = haveHelp,
+			SetHaveHelp = setHaveHelp,
+		}
+	end, { helpMessage, setHelpMessage })
+
 	local settings = props.CurrentSettings
-	return e("Frame", {
-		Size = UDim2.fromOffset(settings.WindowSize.X, settings.WindowSize.Y),
-		Position = UDim2.fromOffset(settings.WindowPosition.X + 350, settings.WindowPosition.Y),
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+	return e(HelpContext.Provider, {
+		value = helpContext,
 	}, {
-		Content = if props.HasSession
-			then e(SessionView, {
-				Session = createRedupeSession,
-				UpdatedSettings = props.UpdatedSettings,
-				HandleAction = props.HandleAction,
-			})
-			else e(EmptySessionView)
+		e("Frame", {
+			Size = UDim2.fromOffset(settings.WindowSize.X, settings.WindowSize.Y),
+			Position = UDim2.fromOffset(settings.WindowPosition.X + 350, settings.WindowPosition.Y),
+			BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		}, {
+			Content = if props.HasSession
+				then e(SessionView, {
+					Session = createRedupeSession,
+					UpdatedSettings = props.UpdatedSettings,
+					HandleAction = props.HandleAction,
+				})
+				else e(EmptySessionView),
+			HelpDisplay = e(HelpDisplay),
+		}),
 	})
 end
 
