@@ -301,6 +301,30 @@ local function ChipWithOutline(props: {
 	}, children)
 end
 
+local function ChipForToggle(props: {
+	Text: string,
+	LayoutOrder: number?,
+	IsCurrent: boolean,
+	OnClick: () -> (),
+})
+	local isCurrent = props.IsCurrent
+	return e(ChipWithOutline, {
+		Text = props.Text,
+		TextColor3 = WHITE,
+		BorderColor3 = WHITE,
+		BorderSize = if isCurrent then 2 else nil,
+		Bolded = isCurrent,
+		BackgroundColor3 = ACTION_BLUE,
+		LayoutOrder = props.LayoutOrder,
+		ZIndex = if isCurrent then 2 else 1,
+		OnClick = props.OnClick,
+	}, {
+		Flex = e("UIFlexItem", {
+			FlexMode = Enum.UIFlexMode.Grow,
+		}),
+	})
+end
+
 -- React component with two side by side chips to pick between Spacing or Count
 local function SpacingOrCountToggle(props: {
 	Session: createRedupeSession.RedupeSession,
@@ -323,46 +347,32 @@ local function SpacingOrCountToggle(props: {
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 4),
 		}),
-		SpacingChip = e(ChipWithOutline, {
+		SpacingChip = e(ChipForToggle, {
 			Text = "Spacing",
-			TextColor3 = WHITE,
-			BorderColor3 = WHITE,
-			BorderSize = if settings.UseSpacing then 2 else nil,
-			Bolded = settings.UseSpacing,
-			BackgroundColor3 = ACTION_BLUE,
+			IsCurrent = settings.UseSpacing,
 			LayoutOrder = 1,
-			ZIndex = if settings.UseSpacing then 2 else 1,
 			OnClick = function()
 				settings.UseSpacing = true
 				props.UpdatedSettings()
 			end,
-		}, {
-			Flex = e("UIFlexItem", {
-				FlexMode = Enum.UIFlexMode.Grow,
-			}),
 		}),
-		CountChip = e(ChipWithOutline, {
+		CountChip = e(ChipForToggle, {
 			Text = "Count",
-			TextColor3 = WHITE,
-			BorderColor3 = WHITE,
-			BorderSize = if not settings.UseSpacing then 2 else nil,
-			Bolded = not settings.UseSpacing,
-			BackgroundColor3 = ACTION_BLUE,
+			IsCurrent = not settings.UseSpacing,
 			LayoutOrder = 2,
-			ZIndex = if not settings.UseSpacing then 2 else 1,
 			OnClick = function()
 				settings.UseSpacing = false
 				props.UpdatedSettings()
 			end,
-		}, {
-			Flex = e("UIFlexItem", {
-				FlexMode = Enum.UIFlexMode.Grow,
-			}),
 		}),
 	})
-end	
+end
 
 local function InterpretValue(input: string): number?
+	-- Implicit divide by 360
+	if input:sub(1, 1) == "/" then
+		input = "360" .. input
+	end
 	local fragment, err = loadstring("return " .. input)
 	if fragment then
 		local success, result = pcall(fragment)
@@ -730,12 +740,64 @@ local function RotationPanel(props: {
 	}, {
 		Rotation = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "Enter precise rotations between copies such as \"180/7\" to form a circle of 7 copies.\nUse the rotate handles for simpler rotations.",
+				HelpRichText = "Enter a precise rotation between copies.\nYou can also enter \"/7\" to form a circle of 7 copies.\nUse the rotate handles for simpler rotations.",
 			}),
 			Subject = e(RotationDisplay, {
 				CurrentSettings = props.CurrentSettings,
 				UpdateSettings = props.UpdatedSettings,
 			}),
+		}),
+	})
+end
+
+-- React component with two side by side chips to pick between Spacing or Count
+local function GroupAsToggle(props: {
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	LayoutOrder: number?,
+})
+	local settings = props.CurrentSettings
+
+	return e("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		BorderSizePixel = 0,
+		BackgroundColor3 = ACTION_BLUE,
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, {
+		ListLayout = e("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 4),
+		}),
+		NoneOption = e(ChipForToggle, {
+			Text = "None",
+			IsCurrent = settings.GroupAs == "None",
+			LayoutOrder = 1,
+			OnClick = function()
+				settings.GroupAs = "None"
+				props.UpdatedSettings()
+			end,
+		}),
+		ModelOption = e(ChipForToggle, {
+			Text = "Model",
+			IsCurrent = settings.GroupAs == "Model",
+			LayoutOrder = 2,
+			OnClick = function()
+				settings.GroupAs = "Model"
+				props.UpdatedSettings()
+			end,
+		}),
+		FolderOption = e(ChipForToggle, {
+			Text = "Folder",
+			IsCurrent = settings.GroupAs == "Folder",
+			LayoutOrder = 3,
+			OnClick = function()
+				settings.GroupAs = "Folder"
+				props.UpdatedSettings()
+			end,
 		}),
 	})
 end
@@ -748,11 +810,32 @@ local function ResultPanel(props: {
 	return e(SubPanel, {
 		Title = "Result Grouping",
 		LayoutOrder = props.LayoutOrder,
+		Padding = UDim.new(0, 4),
 	}, {
-		RedSquare = e("Frame", {
-			Size = UDim2.fromOffset(50, 50),
-			BackgroundColor3 = Color3.fromRGB(255, 0, 0),
+		GroupAs = e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "What should the copies be grouped under? If none then the copies will be siblings of the original.\nIgnored when using STAMP & REPEAT.",
+			}),
+			Subject = e(GroupAsToggle, {
+				CurrentSettings = props.CurrentSettings,
+				UpdatedSettings = props.UpdatedSettings,
+			}),
+			LayoutOrder = 1,
 		}),
+		AddOriginalToGroup = props.CurrentSettings.GroupAs ~= "None" and e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "Should the original you copied from be added to the group too or should only the new copies be grouped?",
+			}),
+			Subject = e(Checkbox, {
+				Label = "Add Original to Group",
+				Checked = props.CurrentSettings.AddOriginalToGroup,
+				Changed = function(checked: boolean)
+					props.CurrentSettings.AddOriginalToGroup = checked
+					props.UpdatedSettings()
+				end,
+			}),
+			LayoutOrder = 2,
+		})
 	})
 end
 

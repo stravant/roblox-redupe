@@ -12,6 +12,8 @@ export type RedupeSettings = {
 	MultilySnapByCount: boolean,
 	Rotation: CFrame,
 	TouchSide: number,
+	GroupAs: string,
+	AddOriginalToGroup: boolean,
 	HaveHelp: boolean,
 }
 
@@ -35,6 +37,8 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		-- Don't actually save the rotation
 		Rotation = CFrame.new(),
 		TouchSide = raw.TouchSide or 1,
+		GroupAs = raw.GroupAs or "None",
+		AddOriginalToGroup = if raw.AddOriginalToGroup == nil then true else raw.AddOriginalToGroup,
 		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
 	}
 end
@@ -51,6 +55,8 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 		UseSpacing = settings.UseSpacing,
 		MultilySnapByCount = settings.MultilySnapByCount,
 		TouchSide = settings.TouchSide,
+		GroupAs = settings.GroupAs,
+		AddOriginalToGroup = settings.AddOriginalToGroup,
 		HaveHelp = settings.HaveHelp,
 	})
 end
