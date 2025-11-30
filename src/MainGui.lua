@@ -22,6 +22,7 @@ type Path2DControlPoint = {
 local Path2DControlPoint = Path2DControlPoint
 
 local BLACK = Color3.fromRGB(0, 0, 0)
+local GREY = Color3.fromRGB(38, 38, 38)
 local WHITE = Color3.fromRGB(255, 255, 255)
 local DARK_RED = Color3.new(0.705882, 0, 0)
 local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
@@ -261,6 +262,7 @@ local function ChipWithOutline(props: {
 	Bolded: boolean,
 	BorderColor3: Color3,
 	BorderSize: number?,
+	ZIndex: number?,
 	BackgroundColor3: Color3,
 	OnClick: () -> (),
 	children: any,
@@ -270,6 +272,7 @@ local function ChipWithOutline(props: {
 			Color = props.BorderColor3,
 			Thickness = props.BorderSize,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			BorderStrokePosition = Enum.BorderStrokePosition.Center,
 		}),
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 4),
@@ -288,6 +291,7 @@ local function ChipWithOutline(props: {
 		BackgroundColor3 = props.BackgroundColor3,
 		TextColor3 = props.TextColor3,
 		RichText = true,
+		ZIndex = props.ZIndex,
 		Text = props.Text,
 		Font = if props.Bolded then Enum.Font.SourceSansBold else Enum.Font.SourceSans,
 		TextSize = if props.Bolded then 20 else 18,
@@ -315,7 +319,6 @@ local function SpacingOrCountToggle(props: {
 			FillDirection = Enum.FillDirection.Horizontal,
 			HorizontalAlignment = Enum.HorizontalAlignment.Left,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 4),
 		}),
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 4),
@@ -328,6 +331,7 @@ local function SpacingOrCountToggle(props: {
 			Bolded = settings.UseSpacing,
 			BackgroundColor3 = ACTION_BLUE,
 			LayoutOrder = 1,
+			ZIndex = if settings.UseSpacing then 2 else 1,
 			OnClick = function()
 				settings.UseSpacing = true
 				props.UpdatedSettings()
@@ -345,6 +349,7 @@ local function SpacingOrCountToggle(props: {
 			Bolded = not settings.UseSpacing,
 			BackgroundColor3 = ACTION_BLUE,
 			LayoutOrder = 2,
+			ZIndex = if not settings.UseSpacing then 2 else 1,
 			OnClick = function()
 				settings.UseSpacing = false
 				props.UpdatedSettings()
@@ -357,6 +362,166 @@ local function SpacingOrCountToggle(props: {
 	})
 end	
 
+local function InterpretValue(input: string): number?
+	local fragment, err = loadstring("return " .. input)
+	if fragment then
+		local success, result = pcall(fragment)
+		if success and typeof(result) == "number" then
+			return result
+		end
+	end
+	return nil
+end
+
+local function NumberInput(props: {
+	Label: string,
+	Value: number,
+	Split: number?,
+	Unit: string?,
+	ValueEntered: (number) -> (),
+	LayoutOrder: number?,
+})
+	local hasFocus, setHasFocus = React.useState(false)
+
+	local displayText = string.format('<b>%g</b><font size="14">%s</font>', props.Value, if props.Unit then props.Unit else "")
+
+	local onFocusLost = React.useCallback(function(object: TextBox, enterPressed: boolean)
+		local newValue = InterpretValue(object.Text)
+		if newValue then
+			props.ValueEntered(newValue)
+		else
+			-- Revert to previous value
+			object.Text = displayText
+		end
+		setHasFocus(false)
+	end, { props.ValueEntered, displayText })
+
+	local onFocused = React.useCallback(function(object: TextBox)
+		setHasFocus(true)
+	end, {})
+
+	return e("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		LayoutOrder = props.LayoutOrder,
+	}, {
+		ListLayout = e("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 4),
+		}),
+		Label = e("TextLabel", {
+			Text = props.Label,
+			TextColor3 = WHITE,
+			BackgroundTransparency = 1,
+			Size = UDim2.new(0, 0, 0, 24),
+			AutomaticSize = Enum.AutomaticSize.XY,
+			Font = Enum.Font.SourceSans,
+			TextSize = 18,
+			LayoutOrder = 1,
+		}),
+		TextBox = e("TextBox", {
+			Text = displayText,
+			TextColor3 = WHITE,
+			RichText = true,
+			BackgroundColor3 = GREY,
+			Size = UDim2.new(0, 0, 0, 24),
+			Font = Enum.Font.RobotoMono,
+			TextSize = 20,
+			LayoutOrder = 2,
+			[React.Event.Focused] = onFocused,
+			[React.Event.FocusLost] = onFocusLost,
+		}, {
+			Corner = e("UICorner", {
+				CornerRadius = UDim.new(0, 4),
+			}),
+			Flex = e("UIFlexItem", {
+				FlexMode = Enum.UIFlexMode.Grow,
+			}),
+			Border = hasFocus and e("UIStroke", {
+				Color = ACTION_BLUE,
+				Thickness = 1,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			}),
+		}),
+	})
+end
+
+local function AutoButtonColorDarken(c: Color3): Color3
+	return c:Lerp(BLACK, 0.3)
+end
+
+local function Checkbox(props: {
+	Label: string,
+	Checked: boolean,
+	Changed: (boolean) -> (),
+	LayoutOrder: number?,
+})
+	local labelHovered, setLabelHovered = React.useState(false)
+	local checkboxColor = if props.Checked then ACTION_BLUE else GREY
+	if labelHovered then
+		checkboxColor = AutoButtonColorDarken(checkboxColor)
+	end
+
+	return e("Frame", {
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundTransparency = 1,
+		LayoutOrder = props.LayoutOrder,
+	}, {
+		ListLayout = e("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 4),
+		}),
+		Label = e("TextButton", {
+			Size = UDim2.new(0, 0, 0, 24),
+			AutomaticSize = Enum.AutomaticSize.X,
+			Text = props.Label,
+			TextColor3 = WHITE,
+			AutoButtonColor = false,
+			BackgroundTransparency = 1,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Font = Enum.Font.SourceSans,
+			TextSize = 18,
+			LayoutOrder = 1,
+			[React.Event.MouseButton1Click] = function()
+				props.Changed(not props.Checked)
+			end,
+			[React.Event.MouseEnter] = function()
+				setLabelHovered(true)
+			end,
+			[React.Event.MouseLeave] = function()
+				setLabelHovered(false)
+			end,
+		}),
+		CheckBox = e("TextButton", {
+			Size = UDim2.new(0, 24, 0, 24),
+			BackgroundColor3 = checkboxColor,
+			Text = if props.Checked then "✓" else "",
+			TextColor3 = WHITE,
+			Font = Enum.Font.SourceSansBold,
+			TextSize = 24,
+			LayoutOrder = 2,
+			[React.Event.MouseButton1Click] = function()
+				props.Changed(not props.Checked)
+			end,
+		}, {
+			Corner = e("UICorner", {
+				CornerRadius = UDim.new(0, 4),
+			}),
+			Stroke = not props.Checked and e("UIStroke", {
+				Color = Color3.fromRGB(136, 136, 136),
+				Thickness = 1,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+			}),
+		}),
+	})
+end
+
 local function CopiesPanel(props: {
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
@@ -364,6 +529,7 @@ local function CopiesPanel(props: {
 })
 	return e(SubPanel, {
 		Title = "Copy Placement",
+		Padding = UDim.new(0, 4),
 		LayoutOrder = props.LayoutOrder,
 	}, {
 		SpacingOrCount = e(HelpGui.WithHelpIcon, {
@@ -375,6 +541,65 @@ local function CopiesPanel(props: {
 				UpdatedSettings = props.UpdatedSettings,
 			}),
 			LayoutOrder = 1,
+		}),
+		Count = not props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "The fixed number of copies to distribute.",
+			}),
+			Subject = e(NumberInput, {
+				Label = "Copy Count",
+				Value = props.CurrentSettings.CopyCount,
+				ValueEntered = function(newValue: number)
+					newValue = math.clamp(math.round(newValue), 2, 1000)
+					props.CurrentSettings.CopyCount = newValue
+					props.UpdatedSettings()
+				end,
+			}),
+			LayoutOrder = 2,
+		}),
+		SpacingMultiplier = props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "Multiple of object size to use as spacing between copies.\nA multiple of 1.0 will put the objects exactly back to back.",
+			}),
+			Subject = e(NumberInput, {
+				Label = "Spacing Factor",
+				Unit = "x",
+				Value = props.CurrentSettings.CopySpacing,
+				ValueEntered = function(newValue: number)
+					props.CurrentSettings.CopySpacing = newValue
+					props.UpdatedSettings()
+				end,
+			}),
+			LayoutOrder = 3,
+		}),
+		Padding = props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "Additional studs of padding to add between copies.",
+			}),
+			Subject = e(NumberInput, {
+				Label = "Stud Padding",
+				Unit = "studs",
+				Value = props.CurrentSettings.CopyPadding,
+				ValueEntered = function(newValue: number)
+					props.CurrentSettings.CopyPadding = newValue
+					props.UpdatedSettings()
+				end,
+			}),
+			LayoutOrder = 4,
+		}),
+		MultiplySnapByCount = e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "When enabled, the snap will apply to each copy, keeping each copy aligned to your chosen grid.\nWhen disabled, the snap will apply to the end position only.",
+			}),
+			Subject = e(Checkbox, {
+				Label = "Multiply Snap By Count",
+				Checked = props.CurrentSettings.MultilySnapByCount,
+				Changed = function(newValue: boolean)
+					props.CurrentSettings.MultilySnapByCount = newValue
+					props.UpdatedSettings()
+				end,
+			}),
+			LayoutOrder = 5,
 		}),
 	})
 end

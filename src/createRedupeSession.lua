@@ -223,7 +223,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			return
 		end
 
-		if not currentSettings.UseSpacing then
+		if not currentSettings.UseSpacing or not draggerContext.PrimaryAxis then
 			return
 		end
 

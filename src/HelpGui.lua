@@ -124,19 +124,7 @@ end
 function HelpGui.BasicTooltip(props: {
 	HelpRichText: string,
 })
-	return e("TextLabel", {
-		Size = UDim2.fromOffset(200, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = BLACK,
-		TextColor3 = WHITE,
-		RichText = true,
-		Text = props.HelpRichText,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Font = Enum.Font.SourceSans,
-		TextSize = 16,
-		LayoutOrder = props.LayoutOrder,
-	}, {
+    local children = {
 		Padding = e("UIPadding", {
 			PaddingBottom = UDim.new(0, 4),
 			PaddingTop = UDim.new(0, 2),
@@ -151,7 +139,31 @@ function HelpGui.BasicTooltip(props: {
 			Thickness = 1,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		}),
-	})
+	}
+    -- Add shadow
+    for i = 1, 8 do
+        children["Shadow"..tostring(i)] = e("UIStroke", {
+            Color = BLACK,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Transparency = i / 9,
+            BorderOffset = UDim.new(0, i),
+        })
+    end
+
+	return e("TextLabel", {
+		Size = UDim2.fromOffset(200, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = BLACK,
+		TextColor3 = WHITE,
+		RichText = true,
+		Text = props.HelpRichText,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.SourceSans,
+		TextSize = 16,
+		LayoutOrder = props.LayoutOrder,
+	}, children)
 end
 
 function HelpGui.HelpDisplay(props: {
