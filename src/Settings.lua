@@ -11,6 +11,7 @@ export type RedupeSettings = {
 	UseSpacing: boolean,
 	MultilySnapByCount: boolean,
 	TouchSide: number,
+	HaveHelp: boolean,
 }
 
 local function loadSettings(plugin: Plugin): RedupeSettings
@@ -31,6 +32,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		UseSpacing = raw.UseSpacing or false,
 		MultilySnapByCount = if raw.MultilySnapByCount == nil then true else raw.MultilySnapByCount,
 		TouchSide = raw.TouchSide or 1,
+		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)
@@ -46,6 +48,7 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 		UseSpacing = settings.UseSpacing,
 		MultilySnapByCount = settings.MultilySnapByCount,
 		TouchSide = settings.TouchSide,
+		HaveHelp = settings.HaveHelp,
 	})
 end
 

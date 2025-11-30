@@ -11,6 +11,8 @@ local createRedupeSession = require(script.Parent.createRedupeSession)
 local Signal = require(Packages.Signal)
 local React = require(Packages.React)
 
+local HelpGui = require(script.Parent.HelpGui)
+
 local e = React.createElement
 
 -- Shim to correct for LPS not knowing about Path2DControlPoint
@@ -19,12 +21,11 @@ type Path2DControlPoint = {
 }
 local Path2DControlPoint = Path2DControlPoint
 
-local HelpContext = React.createContext(nil)
-
 local BLACK = Color3.fromRGB(0, 0, 0)
 local WHITE = Color3.fromRGB(255, 255, 255)
 local DARK_RED = Color3.new(0.705882, 0, 0)
 local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
+local DARKER_BLUE = Color3.fromRGB(0, 42, 179)
 
 local function SubPanel(props: {
 	Title: string,
@@ -122,7 +123,7 @@ local function SubPanel(props: {
 		}),
 		TitleLabel = e("TextLabel", {
 			Size = UDim2.fromScale(1, 0),
-			Position = UDim2.fromOffset(INSET * 2, -2),
+			Position = UDim2.fromOffset(INSET * 2, -3),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			TextColor3 = WHITE,
@@ -171,60 +172,10 @@ local function OperationButton(props: {
 	})
 end
 
-local function WithHelpIcon(props: {
-	Subject: React.ReactElement<any, any>,
-	Help: React.ReactElement<any, any>,
-	LayoutOrder: number?,
-})
-	local helpContext = React.useContext(HelpContext)
-	local hovered, setHovered = React.useState(false)
-
-	return e("Frame", {
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		LayoutOrder = props.LayoutOrder,
-	}, {
-		Layout = e("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 4),
-		}),
-		Subject = e("Frame", {
-			Size = UDim2.fromScale(0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			LayoutOrder = 2,
-		}, {
-			Subject = props.Subject,
-			Flex = e("UIFlexItem", {
-				FlexMode = Enum.UIFlexMode.Grow,
-			}),
-		}),
-		Help = helpContext.HaveHelp and e("ImageLabel", {
-			Size = UDim2.fromOffset(16, 16),
-			Image = "rbxassetid://10717855468",
-			ImageColor3 = if hovered then ACTION_BLUE else WHITE,
-			BackgroundTransparency = 1,
-			LayoutOrder = 1,
-			[React.Event.MouseEnter] = function()
-				helpContext.SetHelpMessage(props.Help)
-				setHovered(true)
-			end,
-			[React.Event.MouseLeave] = function()
-				helpContext.SetHelpMessage(nil)
-				setHovered(false)
-			end,
-		}),
-	})
-end
-
 local function OperationPanel(props: {
 	HandleAction: (string) -> (),
 	LayoutOrder: number?,
 })
-	local SPLIT = 0.7
 	return e(SubPanel, {
 		Title = "Perform Operation",
 		LayoutOrder = props.LayoutOrder,
@@ -252,8 +203,10 @@ local function OperationPanel(props: {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
 				}),
-				DoneButton = e(WithHelpIcon, {
-					Help = "Test",
+				DoneButton = e(HelpGui.WithHelpIcon, {
+					Help = e(HelpGui.BasicTooltip, {
+						HelpRichText = "Place the duplicated objects into the world and close Redupe.",
+					}),
 					Subject = e(OperationButton, {
 						Text = "PLACE & EXIT",
 						Color = ACTION_BLUE,
@@ -264,8 +217,10 @@ local function OperationPanel(props: {
 					}),
 					LayoutOrder = 1,
 				}),
-				StampButton = e(WithHelpIcon, {
-					Help = "Test",
+				StampButton = e(HelpGui.WithHelpIcon, {
+					Help = e(HelpGui.BasicTooltip, {
+						HelpRichText = "Place the duplicated objects and keep Redupe open to place additional copies.",
+					}),
 					Subject = e(OperationButton, {
 						Text = "STAMP & REPEAT",
 						Color = ACTION_BLUE,
@@ -299,8 +254,111 @@ local function OperationPanel(props: {
 	})
 end
 
-local function CopiesPanel(props: {
+local function ChipWithOutline(props: {
+	Text: string,
+	LayoutOrder: number?,
+	TextColor3: Color3,
+	Bolded: boolean,
+	BorderColor3: Color3,
+	BorderSize: number?,
+	BackgroundColor3: Color3,
+	OnClick: () -> (),
+	children: any,
+})
+	local children = {
+		Border = props.BorderSize and e("UIStroke", {
+			Color = props.BorderColor3,
+			Thickness = props.BorderSize,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}),
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 4),
+		}),
+		Padding = e("UIPadding", {
+			PaddingLeft = UDim.new(0, 12),
+			PaddingRight = UDim.new(0, 12),
+		}),
+	}
+	for key, child in props.children or {} do
+		children[key] = child
+	end
+
+	return e("TextButton", {
+		Size = UDim2.new(0, 0, 0, 24),
+		BackgroundColor3 = props.BackgroundColor3,
+		TextColor3 = props.TextColor3,
+		RichText = true,
+		Text = props.Text,
+		Font = if props.Bolded then Enum.Font.SourceSansBold else Enum.Font.SourceSans,
+		TextSize = if props.Bolded then 20 else 18,
+		AutoButtonColor = not props.Bolded,
+		LayoutOrder = props.LayoutOrder,
+		[React.Event.MouseButton1Click] = props.OnClick,
+	}, children)
+end
+
+-- React component with two side by side chips to pick between Spacing or Count
+local function SpacingOrCountToggle(props: {
 	Session: createRedupeSession.RedupeSession,
+	UpdatedSettings: () -> (),
+	LayoutOrder: number?,
+})
+	local settings = props.CurrentSettings
+
+	return e("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		BorderSizePixel = 0,
+		BackgroundColor3 = ACTION_BLUE,
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, {
+		ListLayout = e("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 4),
+		}),
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 4),
+		}),
+		SpacingChip = e(ChipWithOutline, {
+			Text = "Spacing",
+			TextColor3 = WHITE,
+			BorderColor3 = WHITE,
+			BorderSize = if settings.UseSpacing then 2 else nil,
+			Bolded = settings.UseSpacing,
+			BackgroundColor3 = ACTION_BLUE,
+			LayoutOrder = 1,
+			OnClick = function()
+				settings.UseSpacing = true
+				props.UpdatedSettings()
+			end,
+		}, {
+			Flex = e("UIFlexItem", {
+				FlexMode = Enum.UIFlexMode.Grow,
+			}),
+		}),
+		CountChip = e(ChipWithOutline, {
+			Text = "Count",
+			TextColor3 = WHITE,
+			BorderColor3 = WHITE,
+			BorderSize = if not settings.UseSpacing then 2 else nil,
+			Bolded = not settings.UseSpacing,
+			BackgroundColor3 = ACTION_BLUE,
+			LayoutOrder = 2,
+			OnClick = function()
+				settings.UseSpacing = false
+				props.UpdatedSettings()
+			end,
+		}, {
+			Flex = e("UIFlexItem", {
+				FlexMode = Enum.UIFlexMode.Grow,
+			}),
+		}),
+	})
+end	
+
+local function CopiesPanel(props: {
+	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	LayoutOrder: number?,
 })
@@ -308,15 +366,21 @@ local function CopiesPanel(props: {
 		Title = "Copy Placement",
 		LayoutOrder = props.LayoutOrder,
 	}, {
-		RedSquare = e("Frame", {
-			Size = UDim2.fromOffset(50, 50),
-			BackgroundColor3 = Color3.fromRGB(255, 0, 0),
+		SpacingOrCount = e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "Choose whether to evenly space a fixed number of copies or place as many copies as the space allows.",
+			}),
+			Subject = e(SpacingOrCountToggle, {
+				CurrentSettings = props.CurrentSettings,
+				UpdatedSettings = props.UpdatedSettings,
+			}),
+			LayoutOrder = 1,
 		}),
 	})
 end
 
 local function RotationPanel(props: {
-	Session: createRedupeSession.RedupeSession,
+	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	LayoutOrder: number?,
 })
@@ -332,7 +396,7 @@ local function RotationPanel(props: {
 end
 
 local function ResultPanel(props: {
-	Session: createRedupeSession.RedupeSession,
+	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	LayoutOrder: number?,
 })
@@ -348,14 +412,15 @@ local function ResultPanel(props: {
 end
 
 local function SessionView(props: {
-	Session: createRedupeSession.RedupeSession,
+	CurrentSetting: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 })
-	local session = props.Session
+	local helpContext = HelpGui.use()
 	return e("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
+		Size = UDim2.new(0, 240, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 	}, {
 		ListLayout = e("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
@@ -366,19 +431,29 @@ local function SessionView(props: {
 			LayoutOrder = 1,
 		}),
 		CopiesPanel = e(CopiesPanel, {
-			Session = session,
+			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
 			LayoutOrder = 2,
 		}),
 		RotationPanel = e(RotationPanel, {
-			Session = session,
+			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
 			LayoutOrder = 3,
 		}),
 		ResultPanel = e(ResultPanel, {
-			Session = session,
+			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
 			LayoutOrder = 4,
+		}),
+		-- TODO: Better place
+		ToggleHelp = e(OperationButton, {
+			Text = "Toggle Help",
+			Color = ACTION_BLUE,
+			LayoutOrder = 5,
+			Height = 24,
+			OnClick = function()
+				helpContext.SetHaveHelp(not helpContext.HaveHelp)
+			end,
 		}),
 	})
 end
@@ -401,48 +476,29 @@ local function EmptySessionView()
 	})
 end
 
-local function HelpDisplay(props: {
-
-})
-	local helpContext = React.useContext(HelpContext)
-	print("Show help:", helpContext.HelpMessage)
-	return nil
-end
-
 local function MainGui(props: {
 	HasSession: boolean,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 })
-	local helpMessage, setHelpMessage = React.useState(nil :: string?)
-	local haveHelp, setHaveHelp = React.useState(true)
-	local helpContext = React.useMemo(function()
-		return {
-			HelpMessage = helpMessage,
-			SetHelpMessage = setHelpMessage,
-			HaveHelp = haveHelp,
-			SetHaveHelp = setHaveHelp,
-		}
-	end, { helpMessage, setHelpMessage })
-
 	local settings = props.CurrentSettings
-	return e(HelpContext.Provider, {
-		value = helpContext,
+	return e(HelpGui.Provider, {
+		CurrentSettings = props.CurrentSettings,
+		UpdatedSettings = props.UpdatedSettings,
 	}, {
 		e("Frame", {
 			Size = UDim2.fromOffset(settings.WindowSize.X, settings.WindowSize.Y),
 			Position = UDim2.fromOffset(settings.WindowPosition.X + 350, settings.WindowPosition.Y),
-			BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 		}, {
 			Content = if props.HasSession
 				then e(SessionView, {
-					Session = createRedupeSession,
+					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
 					HandleAction = props.HandleAction,
 				})
 				else e(EmptySessionView),
-			HelpDisplay = e(HelpDisplay),
+			HelpDisplay = e(HelpGui.HelpDisplay),
 		}),
 	})
 end
