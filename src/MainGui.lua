@@ -374,21 +374,43 @@ local function InterpretValue(input: string): number?
 end
 
 local function NumberInput(props: {
-	Label: string,
+	Label: string?,
 	Value: number,
-	Split: number?,
 	Unit: string?,
-	ValueEntered: (number) -> (),
+	ValueEntered: (number) -> number?,
 	LayoutOrder: number?,
+	ChipColor: Color3?,
+	Grow: boolean,
 })
 	local hasFocus, setHasFocus = React.useState(false)
 
 	local displayText = string.format('<b>%g</b><font size="14">%s</font>', props.Value, if props.Unit then props.Unit else "")
 
+	local textBoxRef = React.useRef(nil)
+	local numberPartLength = TextService:GetTextSize(
+		string.format("%g", props.Value),
+		20,
+		Enum.Font.RobotoMono,
+		Vector2.new(1000, 1000)
+	).X
+	local unitPartLength = TextService:GetTextSize(
+		if props.Unit then props.Unit else "",
+		14,
+		Enum.Font.RobotoMono,
+		Vector2.new(1000, 1000)
+	).X
+	local displayTextSize = numberPartLength + unitPartLength
+	local textFitsAtNormalSize = not textBoxRef.current or
+		textBoxRef.current.AbsoluteSize.X >= displayTextSize + 4
+
 	local onFocusLost = React.useCallback(function(object: TextBox, enterPressed: boolean)
 		local newValue = InterpretValue(object.Text)
 		if newValue then
-			props.ValueEntered(newValue)
+			local newValue = props.ValueEntered(newValue)
+			-- If the value didn't change we need to revert because we won't get rerendered
+			if newValue == props.Value then
+				object.Text = displayText
+			end
 		else
 			-- Revert to previous value
 			object.Text = displayText
@@ -401,7 +423,7 @@ local function NumberInput(props: {
 	end, {})
 
 	return e("Frame", {
-		Size = UDim2.new(1, 0, 0, 0),
+		Size = if props.Grow then UDim2.new() else UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		LayoutOrder = props.LayoutOrder,
@@ -412,7 +434,10 @@ local function NumberInput(props: {
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 4),
 		}),
-		Label = e("TextLabel", {
+		Flex = props.Grow and e("UIFlexItem", {
+			FlexMode = Enum.UIFlexMode.Grow,
+		}),
+		Label = props.Label and e("TextLabel", {
 			Text = props.Label,
 			TextColor3 = WHITE,
 			BackgroundTransparency = 1,
@@ -423,16 +448,18 @@ local function NumberInput(props: {
 			LayoutOrder = 1,
 		}),
 		TextBox = e("TextBox", {
-			Text = displayText,
+			Text = textFitsAtNormalSize and displayText or " " .. displayText,
 			TextColor3 = WHITE,
 			RichText = true,
 			BackgroundColor3 = GREY,
 			Size = UDim2.new(0, 0, 0, 24),
 			Font = Enum.Font.RobotoMono,
+			TextScaled = not textFitsAtNormalSize,
 			TextSize = 20,
 			LayoutOrder = 2,
 			[React.Event.Focused] = onFocused,
 			[React.Event.FocusLost] = onFocusLost,
+			ref = textBoxRef,
 		}, {
 			Corner = e("UICorner", {
 				CornerRadius = UDim.new(0, 4),
@@ -444,6 +471,18 @@ local function NumberInput(props: {
 				Color = ACTION_BLUE,
 				Thickness = 1,
 				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			}),
+			ChipColor = props.ChipColor and not hasFocus and e("CanvasGroup", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+			}, {
+				ChipFrame = e("Frame", {
+					Size = UDim2.new(0, 2, 1, 0),
+					BackgroundColor3 = props.ChipColor,
+				}),
+				Corner = e("UICorner", {
+					CornerRadius = UDim.new(0, 4),
+				}),
 			}),
 		}),
 	})
@@ -528,7 +567,7 @@ local function CopiesPanel(props: {
 	LayoutOrder: number?,
 })
 	return e(SubPanel, {
-		Title = "Copy Placement",
+		Title = "Generation Method",
 		Padding = UDim.new(0, 4),
 		LayoutOrder = props.LayoutOrder,
 	}, {
@@ -553,6 +592,7 @@ local function CopiesPanel(props: {
 					newValue = math.clamp(math.round(newValue), 2, 1000)
 					props.CurrentSettings.CopyCount = newValue
 					props.UpdatedSettings()
+					return newValue
 				end,
 			}),
 			LayoutOrder = 2,
@@ -566,8 +606,13 @@ local function CopiesPanel(props: {
 				Unit = "x",
 				Value = props.CurrentSettings.CopySpacing,
 				ValueEntered = function(newValue: number)
+					if math.abs(newValue) < 0.01 then
+						warn("Redupe: Spacing factor of 0 will result in the copies being exactly on top of one and other.\n"
+							.. "Unless you plan to rotate a stack of copies around the pivot you probably want a spacing greater than one.")
+					end
 					props.CurrentSettings.CopySpacing = newValue
 					props.UpdatedSettings()
+					return newValue
 				end,
 			}),
 			LayoutOrder = 3,
@@ -604,18 +649,93 @@ local function CopiesPanel(props: {
 	})
 end
 
+local function toCleanDegree(radians: number): number
+	if math.abs(radians) < 0.0001 then
+		return 0
+	end
+	return math.deg(radians)
+end
+
+local function RotationDisplay(props: {
+	CurrentSettings: Settings.RedupeSettings,
+	UpdateSettings: () -> (),
+	LayoutOrder: number?,
+})
+	local x, y, z = props.CurrentSettings.Rotation:ToEulerAnglesXYZ()
+	local xDegrees = toCleanDegree(x)
+	local yDegrees = toCleanDegree(y)
+	local zDegrees = toCleanDegree(z)
+
+	return e("Frame", {
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		LayoutOrder = props.LayoutOrder,
+	}, {
+		ListLayout = e("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 4),
+		}),
+		XCoord = e(NumberInput, {
+			Unit = "°",
+			Value = xDegrees,
+			Grow = true,
+			ChipColor = Color3.fromRGB(255, 0, 0),
+			ValueEntered = function(newValue: number)
+				local theta = math.rad(newValue)
+				local rotation = CFrame.fromEulerAnglesXYZ(theta, y, z)
+				props.CurrentSettings.Rotation = rotation
+				props.UpdateSettings()
+			end,
+			LayoutOrder = 1,
+		}),
+		YCoord = e(NumberInput, {
+			Unit = "°",
+			Value = yDegrees,
+			Grow = true,
+			ChipColor = Color3.fromRGB(0, 255, 0),
+			ValueEntered = function(newValue: number)
+				local theta = math.rad(newValue)
+				local rotation = CFrame.fromEulerAnglesXYZ(x, theta, z)
+				props.CurrentSettings.Rotation = rotation
+				props.UpdateSettings()
+			end,
+			LayoutOrder = 2,
+		}),
+		ZCoord = e(NumberInput, {
+			Unit = "°",
+			Value = zDegrees,
+			Grow = true,
+			ChipColor = Color3.fromRGB(0, 0, 255),
+			ValueEntered = function(newValue: number)
+				local theta = math.rad(newValue)
+				local rotation = CFrame.fromEulerAnglesXYZ(x, y, theta)
+				props.CurrentSettings.Rotation = rotation
+				props.UpdateSettings()
+			end,
+			LayoutOrder = 3,
+		}),
+	})
+end
+
 local function RotationPanel(props: {
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	LayoutOrder: number?,
 })
 	return e(SubPanel, {
-		Title = "Rotation Angle",
+		Title = "Rotation Between Copies",
 		LayoutOrder = props.LayoutOrder,
 	}, {
-		RedSquare = e("Frame", {
-			Size = UDim2.fromOffset(50, 50),
-			BackgroundColor3 = Color3.fromRGB(255, 0, 0),
+		Rotation = e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "Enter precise rotations between copies such as \"180/7\" to form a circle of 7 copies.\nUse the rotate handles for simpler rotations.",
+			}),
+			Subject = e(RotationDisplay, {
+				CurrentSettings = props.CurrentSettings,
+				UpdateSettings = props.UpdatedSettings,
+			}),
 		}),
 	})
 end
@@ -626,7 +746,7 @@ local function ResultPanel(props: {
 	LayoutOrder: number?,
 })
 	return e(SubPanel, {
-		Title = "Where to put results?",
+		Title = "Result Grouping",
 		LayoutOrder = props.LayoutOrder,
 	}, {
 		RedSquare = e("Frame", {

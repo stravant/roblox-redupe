@@ -10,6 +10,7 @@ export type RedupeSettings = {
 	CopyPadding: number,
 	UseSpacing: boolean,
 	MultilySnapByCount: boolean,
+	Rotation: CFrame,
 	TouchSide: number,
 	HaveHelp: boolean,
 }
@@ -31,6 +32,8 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		CopyPadding = raw.CopyPadding or 0,
 		UseSpacing = raw.UseSpacing or false,
 		MultilySnapByCount = if raw.MultilySnapByCount == nil then true else raw.MultilySnapByCount,
+		-- Don't actually save the rotation
+		Rotation = CFrame.new(),
 		TouchSide = raw.TouchSide or 1,
 		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
 	}

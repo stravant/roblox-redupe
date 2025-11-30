@@ -132,7 +132,6 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	draggerContext.StartEndResizeSize = nil
 	draggerContext.StartEndResizePosition = nil
 	draggerContext.UseSnapSize = currentSettings.UseSpacing
-	draggerContext.RotationCFrame = CFrame.identity
 
 	-- Patch snapping to support a mulitplier
 	draggerContext.SnapMultiplier = 1
@@ -307,9 +306,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				(endDisplayPosition + worldDirection * 10000)
 			)
 
-			if not draggerContext.RotationCFrame:FuzzyEq(CFrame.identity) then
+			if not currentSettings.Rotation:FuzzyEq(CFrame.identity) then
 				local startDisplayPosition = draggerContext.StartCFrame.Position
-				local worldRotatedDirection = (draggerContext.StartCFrame * draggerContext.RotationCFrame):VectorToWorldSpace(draggerContext.PrimaryAxis)
+				local worldRotatedDirection = (draggerContext.StartCFrame * currentSettings.Rotation):VectorToWorldSpace(draggerContext.PrimaryAxis)
 				rotatedAxisDisplay.Color3 = Color3.new(1, 1, 1)
 				rotatedAxisDisplay:AddLine(
 					(startDisplayPosition - worldRotatedDirection * 10000),
@@ -386,7 +385,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			end
 
 			-- Do the bending
-			bendPlacement(placement, draggerContext.PrimaryAxis, draggerContext.RotationCFrame, currentSettings.TouchSide)
+			bendPlacement(placement, draggerContext.PrimaryAxis, currentSettings.Rotation, currentSettings.TouchSide)
 		end
 
 		-- Place using offsets
@@ -438,12 +437,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				}),
 				RotateHandles.new(draggerContext, {
 					GetBoundingBox = function()
-						return draggerContext.StartCFrame * draggerContext.RotationCFrame,
+						return draggerContext.StartCFrame * currentSettings.Rotation,
 							Vector3.zero,
 							Vector3.zero
 					end,
 					StartTransform = function()
-						draggerContext.StartDragCFrame = draggerContext.RotationCFrame
+						draggerContext.StartDragCFrame = currentSettings.Rotation
 					end,
 					ApplyTransform = function(localTransform: CFrame)
 						-- Take only half the rotation to provide more precision
@@ -452,7 +451,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						-- For rotations we have to orthonormalize to avoid accumulating
 						-- catastrophic skew because skew accumulates exponentially per
 						-- operation.
-						draggerContext.RotationCFrame = result:Orthonormalize()
+						currentSettings.Rotation = result:Orthonormalize()
 						updatePlacement(false)
 						changeSignal:Fire()
 					end,
