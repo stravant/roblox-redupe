@@ -918,6 +918,7 @@ local function MainGui(props: {
 		e("Frame", {
 			Size = UDim2.fromOffset(settings.WindowSize.X, settings.WindowSize.Y),
 			Position = UDim2.fromOffset(settings.WindowPosition.X + 350, settings.WindowPosition.Y),
+			BackgroundTransparency = 1,
 		}, {
 			Content = if props.HasSession
 				then e(SessionView, {
