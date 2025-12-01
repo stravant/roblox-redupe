@@ -3,6 +3,7 @@
 local CoreGui = game:GetService("CoreGui")
 local DraggerService = game:GetService("DraggerService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
+local Selection = game:GetService("Selection")
 
 local Packages = script.Parent.Parent.Packages
 
@@ -89,7 +90,13 @@ local function largestAxis(v: Vector3): Vector3
 	end
 end
 
-local function createRedupeSession(plugin: Plugin, targets: { Instance }, currentSettings: Settings.RedupeSettings)
+export type SessionState = {
+	RelativeEndCFrame: CFrame,
+	EndDeltaSize: Vector3,
+	EndDeltaPosition: Vector3,
+}
+
+local function createRedupeSession(plugin: Plugin, targets: { Instance }, currentSettings: Settings.RedupeSettings, previousState: SessionState?)
 	local session = {}
 
 	local screenGui = Instance.new("ScreenGui")
@@ -345,7 +352,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		draggerContext.EndDeltaPosition = oldOffsetPer * (newCount - 1)
 	end
 
-	local function updatePlacement(done: boolean)
+	local function updatePlacement(done: boolean): {{ Instance }}
 		ghostPreview.hide()
 
 		updatePrimaryAxisDisplay()
@@ -390,15 +397,17 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 		-- Place using offsets
 		local runningPosition = draggerContext.StartCFrame
+		local results = {}
 		for _, placement in placements do
 			runningPosition *= placement.Offset
-			ghostPreview.create(not done, runningPosition, placement.Size)
+			table.insert(results, ghostPreview.create(not done, runningPosition, placement.Size))
 		end
 
 		ghostPreview.trim()
 
 		-- Remember the copy count for snapping purposes
 		draggerContext.SnapMultiplier = copyCount - 1
+		return results
 	end
 
 	-- Schema
@@ -484,7 +493,50 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 	local handle = Roact.mount(rootElement)
 
+	local function packageResults(results: {{ Instance }})
+		local createdContainers = {}
+		local containers = {}
+		for i, target in targets do
+			if currentSettings.GroupAs == "None" then
+				containers[i] = target.Parent
+			else
+				local container = Instance.new(currentSettings.GroupAs)
+				if currentSettings.GroupAs == "Model" then
+					container.WorldPivot = target:GetPivot()
+				end
+				container.Name = target.Name .. "Copies"
+				container.Parent = target.Parent
+				containers[i] = container
+				table.insert(createdContainers, container)
+			end
+		end
+		for _, copyList in results do
+			for i, copy in copyList do
+				copy.Parent = containers[i]
+			end
+		end
+		if currentSettings.AddOriginalToGroup then
+			for i, target in targets do
+				target.Parent = containers[i]
+			end
+		end
+		return createdContainers
+	end
+
+	local recordingInProgress = ChangeHistoryService:TryBeginRecording("RedupeChanges", "Redupe Changes")
+
+	session.GetState = function()
+		return {
+			RelativeEndCFrame = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame),
+			EndDeltaSize = draggerContext.EndDeltaSize,
+			EndDeltaPosition = draggerContext.EndDeltaPosition,
+		}
+	end
 	session.Destroy = function()
+		if recordingInProgress then
+			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
+			recordingInProgress = false
+		end
 		Roact.unmount(handle)
 		screenGui:Destroy()
 		ghostPreview.hide()
@@ -493,10 +545,23 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		rotatedAxisDisplay:Destroy()
 	end
 	session.Commit = function()
-		updatePlacement(true)
-		ChangeHistoryService:SetWaypoint("Redupe Commit")
+		local finalResults = updatePlacement(true)
+		local createdContainers = packageResults(finalResults)
+		if #createdContainers > 0 then
+			Selection:Set(createdContainers)
+		else
+			Selection:Set(finalResults[#finalResults])
+		end
+		if recordingInProgress then
+			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Commit)
+			recordingInProgress = false
+		else
+			warn("Redupe: ChangeHistory Recording failed, fall back to adding waypoint.")
+			ChangeHistoryService:AddWaypoint("Redupe Changes")
+		end
 		primaryAxisDisplay:Destroy()
 		rotatedAxisDisplay:Destroy()
+		return session.GetState()
 	end
 	session.Update = function()
 		draggerContext.UseSnapSize = currentSettings.UseSpacing

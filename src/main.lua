@@ -1,6 +1,7 @@
 --!strict
 local CoreGui = game:GetService("CoreGui")
 local Selection = game:GetService("Selection")
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local NEW_RIBBON_ICON = "rbxassetid://140448476907799"
 
@@ -37,8 +38,12 @@ return function(plugin: Plugin)
 	local selectionChangedCn = nil
 	local pluginActive = false
 
+	local undoCn = nil
+
 	local reactRoot;
 	local reactScreenGui;
+
+	local temporarilyIgnoreSelectionChanges = false
 
 	local function destroyUI()
 		button:SetActive(false)
@@ -76,18 +81,25 @@ return function(plugin: Plugin)
 		if session then
 			session:Destroy()
 			session = nil
+			undoCn:Disconnect()
+			undoCn = nil
 		end
 	end
 
-	local function tryCreateSession()
+	local function tryCreateSession(oldState: createRedupeSession.SessionState?)
 		if session then
 			destroySession()
 		end
 		local targets = getFilteredSelection()
 		if #targets > 0 then
-			session = createRedupeSession(plugin, targets, activeSettings)
+			session = createRedupeSession(plugin, targets, activeSettings, oldState)
 			session.ChangeSignal:Connect(updateUI)
 			updateUI()
+
+			-- Kill the session on undo
+			undoCn = ChangeHistoryService.OnUndo:Connect(function()
+				destroySession()
+			end)
 
 			-- Activate the plugin here, only after we have a session
 			if not pluginActive then
@@ -104,6 +116,9 @@ return function(plugin: Plugin)
 	end
 
 	local function closeRequested()
+		-- Don't reuse rotations when pressing done, only when stamping
+		activeSettings.Rotation = CFrame.new()
+
 		destroyUI()
 		destroySession()
 
@@ -116,7 +131,10 @@ return function(plugin: Plugin)
 	end
 	
 	local function onSelectionChange()
-		tryCreateSession()
+		if temporarilyIgnoreSelectionChanges then
+			return
+		end
+		tryCreateSession(if session then session.GetState() else nil)
 	end
 
 	local function createUI()
@@ -130,8 +148,19 @@ return function(plugin: Plugin)
 	end
 
 	function handleAction(action: string)
-		print("Handle action:", action)
+		-- Ignore selection changes until we're done changing the selection
+		-- to the newly created objects.
+		temporarilyIgnoreSelectionChanges = true
+		task.defer(function()
+			temporarilyIgnoreSelectionChanges = false
+		end)
 		if action == "cancel" then
+			closeRequested()
+		elseif action == "stamp" then
+			local sessionState = session.Commit()
+			tryCreateSession(sessionState)
+		elseif action == "done" then
+			session.Commit()
 			closeRequested()
 		end
 	end

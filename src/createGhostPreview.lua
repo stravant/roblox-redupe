@@ -2,7 +2,7 @@
 
 export type GhostPreview = {
 	hide: () -> (),
-	create: (isPreview: boolean, positionOffset: Vector3, sizeOffset: Vector3) -> (),
+	create: (isPreview: boolean, positionOffset: Vector3, sizeOffset: Vector3) -> { Instance },
 	trim: () -> (),
 }
 
@@ -77,7 +77,7 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 		return math.max(finalSize.X / baseSize.X, finalSize.Y / baseSize.Y, finalSize.Z / baseSize.Z)
 	end
 
-	local function create(isPreview: boolean, targetCFrame: CFrame, targetSize: Vector3)
+	local function create(isPreview: boolean, targetCFrame: CFrame, targetSize: Vector3): { Instance }
 		local scale = getScale(size, targetSize)
 		local itemToSpawn = getItem(isPreview)
 		for i, target in targets do
@@ -105,6 +105,7 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 		if isPreview then
 			table.insert(placed, itemToSpawn)
 		end
+		return itemToSpawn.instances
 	end
 
 	return {
