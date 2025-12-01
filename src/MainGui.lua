@@ -839,50 +839,129 @@ local function ResultPanel(props: {
 	})
 end
 
+local function SessionTopInfoRow(props: {
+	LayoutOrder: number?,
+})
+	local helpContext = HelpGui.use()
+	local stHovered, setStHovered = React.useState(false)
+	return e("Frame", {
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = props.LayoutOrder,
+		BackgroundTransparency = 1
+	}, {
+		Padding = e("UIPadding", {
+			PaddingBottom = UDim.new(0, 0),
+			PaddingTop = UDim.new(0, 0),
+			PaddingLeft = UDim.new(0, 10),
+			PaddingRight = UDim.new(0, 4),
+		}),
+		ListLayout = e("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			FillDirection = Enum.FillDirection.Horizontal,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		}),
+		DragText = e("TextLabel", {
+			AutomaticSize = Enum.AutomaticSize.XY,
+			BackgroundTransparency = 1,
+			TextColor3 = WHITE,
+			Text = "::",
+			Font = Enum.Font.SourceSansBold,
+			TextSize = 32,
+			LayoutOrder = 1,
+		}, {
+			Padding = e("UIPadding", {
+				PaddingBottom = UDim.new(0, 4),
+				PaddingRight = UDim.new(0, 3),
+			}),
+		}),
+		STLogoGraph = e("ImageLabel", {
+			Size = UDim2.fromOffset(28, 28),
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://140140513285893",
+			LayoutOrder = 2,
+			[React.Event.MouseEnter] = function()
+				setStHovered(true)
+			end,
+			[React.Event.MouseLeave] = function()
+				setStHovered(false)
+			end,
+		}),
+		PluginNameLabel = e("TextLabel", {
+			BackgroundTransparency = 1,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextColor3 = WHITE,
+			RichText = true,
+			Text = stHovered and "by stravant" or "<i>Redupe</i>",
+			Font = Enum.Font.SourceSansBold,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextSize = 26,
+			LayoutOrder = 3,
+		}, {
+			Flex = e("UIFlexItem", {
+				FlexMode = Enum.UIFlexMode.Grow,
+			}),
+		}),
+		HelpPart = e("Frame", {
+			Size = helpContext.HaveHelp and UDim2.fromOffset(76, 0) or UDim2.fromOffset(42, 0),
+			BackgroundTransparency = 1,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = 4,
+		}, {
+			ToggleHelp = e(OperationButton, {
+				Text = helpContext.HaveHelp and "Hide Help" or "Help",
+				Color = ACTION_BLUE,
+				Height = 24,
+				OnClick = function()
+					helpContext.SetHaveHelp(not helpContext.HaveHelp)
+				end,
+			}),
+		})
+	})
+end
+
 local function SessionView(props: {
 	CurrentSetting: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 })
-	local helpContext = HelpGui.use()
-	return e("Frame", {
+	return e("ImageButton", {
+		Image = "",
+		AutoButtonColor = false,
 		Size = UDim2.new(0, 240, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 	}, {
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 8),
+		}),
 		ListLayout = e("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 0),
 		}),
+		TopInfoRow = e(SessionTopInfoRow, {
+			LayoutOrder = 1,
+		}),
 		OperationPanel = e(OperationPanel, {
 			HandleAction = props.HandleAction,
-			LayoutOrder = 1,
+			LayoutOrder = 2,
 		}),
 		CopiesPanel = e(CopiesPanel, {
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
-			LayoutOrder = 2,
+			LayoutOrder = 3,
 		}),
 		RotationPanel = e(RotationPanel, {
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
-			LayoutOrder = 3,
+			LayoutOrder = 4,
 		}),
 		ResultPanel = e(ResultPanel, {
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
-			LayoutOrder = 4,
-		}),
-		-- TODO: Better place
-		ToggleHelp = e(OperationButton, {
-			Text = "Toggle Help",
-			Color = ACTION_BLUE,
 			LayoutOrder = 5,
-			Height = 24,
-			OnClick = function()
-				helpContext.SetHaveHelp(not helpContext.HaveHelp)
-			end,
 		}),
+
 	})
 end
 
