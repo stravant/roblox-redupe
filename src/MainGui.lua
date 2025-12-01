@@ -738,9 +738,10 @@ local function RotateModeImageChip(props: {
 	OnClick: () -> (),
 })
 	local isHovered, setIsHovered = React.useState(false)
+	local helpContext = HelpGui.use()
 
 	return e("ImageButton", {
-		Size = UDim2.new(0, 0, 0, 46),
+		Size = UDim2.new(0, 0, 0, helpContext.HaveHelp and 43 or 46),
 		BackgroundTransparency = 1,
 		Image = props.Image,
 		ImageColor3 = if not props.IsCurrent and isHovered then WHITE:Lerp(BLACK, 0.3) else WHITE,
@@ -1001,7 +1002,7 @@ local function SessionTopInfoRow(props: {
 			Text = stHovered and "by stravant" or "<i>Redupe</i>",
 			Font = Enum.Font.SourceSansBold,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			TextSize = 26,
+			TextSize = stHovered and 24 or 26,
 			LayoutOrder = 3,
 		}, {
 			Flex = e("UIFlexItem", {
@@ -1072,10 +1073,23 @@ local function SessionView(props: {
 end
 
 local function EmptySessionView()
-	return e("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
+	return e("ImageButton", {
+		Image = "",
+		AutoButtonColor = false,
+		Size = UDim2.new(0, 240, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 	}, {
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 8),
+		}),
+		ListLayout = e("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 0),
+		}),
+		TopInfoRow = e(SessionTopInfoRow, {
+			LayoutOrder = 1,
+		}),
 		InfoLabel = e("TextLabel", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -1085,6 +1099,7 @@ local function EmptySessionView()
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.SourceSans,
 			TextSize = 20,
+			LayoutOrder = 2,
 		}),
 	})
 end
