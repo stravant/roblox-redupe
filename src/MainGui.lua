@@ -212,7 +212,7 @@ local function OperationPanel(props: {
 					Subject = e(OperationButton, {
 						Text = "PLACE & EXIT",
 						Color = ACTION_BLUE,
-						Height = 24,
+						Height = 34,
 						OnClick = function()
 							props.HandleAction("done")
 						end,
@@ -246,7 +246,7 @@ local function OperationPanel(props: {
 				CancelButton = e(OperationButton, {
 					Text = "CANCEL",
 					Color = DARK_RED,
-					Height = 52,
+					Height = 62,
 					OnClick = function()
 						props.HandleAction("cancel")
 					end,
@@ -949,6 +949,7 @@ end
 
 local function SessionTopInfoRow(props: {
 	LayoutOrder: number?,
+	ShowHelpToggle: boolean,
 })
 	local helpContext = HelpGui.use()
 	local stHovered, setStHovered = React.useState(false)
@@ -1010,7 +1011,7 @@ local function SessionTopInfoRow(props: {
 				FlexMode = Enum.UIFlexMode.Grow,
 			}),
 		}),
-		HelpPart = e("Frame", {
+		HelpPart = props.ShowHelpToggle and e("Frame", {
 			Size = helpContext.HaveHelp and UDim2.fromOffset(76, 0) or UDim2.fromOffset(42, 0),
 			BackgroundTransparency = 1,
 			AutomaticSize = Enum.AutomaticSize.Y,
@@ -1068,6 +1069,7 @@ local function SessionView(props: {
 		}),
 		TopInfoRow = e(SessionTopInfoRow, {
 			LayoutOrder = 1,
+			ShowHelpToggle = true,
 		}),
 		OperationPanel = e(OperationPanel, {
 			HandleAction = props.HandleAction,
@@ -1108,9 +1110,11 @@ local function EmptySessionView()
 		}),
 		TopInfoRow = e(SessionTopInfoRow, {
 			LayoutOrder = 1,
+			ShowHelpToggle = false,
 		}),
 		InfoLabel = e("TextLabel", {
-			Size = UDim2.fromScale(1, 1),
+			Size = UDim2.fromScale(1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
 			Text = "Select at least one Part or Model to duplicate.",
@@ -1119,6 +1123,13 @@ local function EmptySessionView()
 			Font = Enum.Font.SourceSans,
 			TextSize = 20,
 			LayoutOrder = 2,
+		}, {
+			Padding = e("UIPadding", {
+				PaddingBottom = UDim.new(0, 10),
+				PaddingTop = UDim.new(0, 10),
+				PaddingLeft = UDim.new(0, 10),
+				PaddingRight = UDim.new(0, 10),
+			}),
 		}),
 	})
 end
