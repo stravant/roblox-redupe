@@ -513,7 +513,7 @@ function MoveHandles:_updateHandles()
 			local double = doubleThis or doubleAll
 			local size = (self._draggerContext.EndDeltaSize * handleDef.LocalAxis).Magnitude
 			self._handles[handleId] = {
-				Outset = if double then self._props.Outset else 0.6,
+				Outset = if double then self._props.Outset else 0.75,
 				FixedOutset = 0.5 * size,
 				Axis = handleBaseCFrame,
 				Color = handleDef.Color,
