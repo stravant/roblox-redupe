@@ -729,6 +729,100 @@ local function RotationDisplay(props: {
 	})
 end
 
+local function RotateModeImageChip(props: {
+	Image: string,
+	ImageRectOffset: Vector2,
+	ImageRectSize: Vector2,
+	IsCurrent: boolean,
+	LayoutOrder: number?,
+	OnClick: () -> (),
+})
+	local isHovered, setIsHovered = React.useState(false)
+
+	return e("ImageButton", {
+		Size = UDim2.new(0, 0, 0, 46),
+		BackgroundTransparency = 1,
+		Image = props.Image,
+		ImageColor3 = if not props.IsCurrent and isHovered then WHITE:Lerp(BLACK, 0.3) else WHITE,
+		ImageRectOffset = props.ImageRectOffset,
+		ImageRectSize = props.ImageRectSize,
+		LayoutOrder = props.LayoutOrder,
+		[React.Event.MouseButton1Click] = props.OnClick,
+		[React.Event.MouseEnter] = function()
+			setIsHovered(true)
+		end,
+		[React.Event.MouseLeave] = function()
+			setIsHovered(false)
+		end,
+	}, {
+		Stroke = props.IsCurrent and e("UIStroke", {
+			Color = WHITE,
+			Thickness = 2,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+		}),
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 4),
+		}),
+		Flex = e("UIFlexItem", {
+			FlexMode = Enum.UIFlexMode.Grow,
+		}),
+	})
+end
+
+local function RotateModeToggle(props: {
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	LayoutOrder: number?,
+})
+	local settings = props.CurrentSettings
+
+	return e("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		BackgroundTransparency = 1,
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, {
+		ListLayout = e("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 4),
+		}),
+		InnerOption = e(RotateModeImageChip, {
+			Image = "rbxassetid://115945750977717",
+			ImageRectOffset = Vector2.new(0, 20),
+			ImageRectSize = Vector2.new(222, 200),
+			IsCurrent = settings.TouchSide == 1,
+			LayoutOrder = 1,
+			OnClick = function()
+				settings.TouchSide = 1
+				props.UpdatedSettings()
+			end,
+		}),
+		MiddleOption = e(RotateModeImageChip, {
+			Image = "rbxassetid://115945750977717",
+			ImageRectOffset = Vector2.new(222, 20),
+			ImageRectSize = Vector2.new(222, 200),
+			IsCurrent = settings.TouchSide == 0,
+			LayoutOrder = 2,
+			OnClick = function()
+				settings.TouchSide = 0
+				props.UpdatedSettings()
+			end,
+		}),
+		OuterOption = e(RotateModeImageChip, {
+			Image = "rbxassetid://115945750977717",
+			ImageRectOffset = Vector2.new(444, 20),
+			ImageRectSize = Vector2.new(222, 200),
+			IsCurrent = settings.TouchSide == -1,
+			LayoutOrder = 3,
+			OnClick = function()
+				settings.TouchSide = -1
+				props.UpdatedSettings()
+			end,
+		}),
+	})
+end
+
 local function RotationPanel(props: {
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
@@ -737,6 +831,7 @@ local function RotationPanel(props: {
 	return e(SubPanel, {
 		Title = "Rotation Between Copies",
 		LayoutOrder = props.LayoutOrder,
+		Padding = UDim.new(0, 4),
 	}, {
 		Rotation = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
@@ -746,6 +841,17 @@ local function RotationPanel(props: {
 				CurrentSettings = props.CurrentSettings,
 				UpdateSettings = props.UpdatedSettings,
 			}),
+			LayoutOrder = 1,
+		}),
+		e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "Choose what pivot point the rotation uses, the one on the inside, middle, or outside of the curve.",
+			}),
+			Subject = e(RotateModeToggle, {
+				CurrentSettings = props.CurrentSettings,
+				UpdatedSettings = props.UpdatedSettings,
+			}),
+			LayoutOrder = 2,
 		}),
 	})
 end
