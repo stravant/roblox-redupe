@@ -2,6 +2,7 @@
 --!strict
 
 local TextService = game:GetService("TextService")
+local UserInputService = game:GetService("UserInputService")
 
 local Plugin = script.Parent.Parent
 local Packages = Plugin.Packages
@@ -1032,12 +1033,31 @@ local function SessionView(props: {
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 })
+	local function beginDrag(instance, x, y)
+		local startMouseLocation = UserInputService:GetMouseLocation()
+		local startWindowPosition = props.CurrentSettings.WindowPosition
+		task.spawn(function()
+			local previousDelta = Vector2.new()
+			while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+				local newMouseLocation = UserInputService:GetMouseLocation()
+				local delta = newMouseLocation - startMouseLocation
+				if delta ~= previousDelta then
+					previousDelta = delta
+					props.CurrentSettings.WindowPosition = startWindowPosition + delta
+					props.UpdatedSettings()
+				end
+				task.wait()
+			end
+		end)
+	end
+
 	return e("ImageButton", {
 		Image = "",
 		AutoButtonColor = false,
 		Size = UDim2.new(0, 240, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		[React.Event.MouseButton1Down] = beginDrag,
 	}, {
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 8),
@@ -1068,7 +1088,6 @@ local function SessionView(props: {
 			UpdatedSettings = props.UpdatedSettings,
 			LayoutOrder = 5,
 		}),
-
 	})
 end
 
