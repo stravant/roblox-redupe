@@ -106,7 +106,7 @@ function HelpGui.WithHelpIcon(props: {
 		Help = helpContext.HaveHelp and e("ImageLabel", {
 			Size = UDim2.fromOffset(16, 16),
 			Image = "rbxassetid://10717855468",
-			ImageColor3 = if hovered then ACTION_BLUE else WHITE,
+			ImageColor3 = if hovered then DARK_RED else WHITE,
 			BackgroundTransparency = 1,
 			LayoutOrder = 1,
 			[React.Event.MouseEnter] = function(instance)
@@ -143,7 +143,7 @@ function HelpGui.BasicTooltip(props: {
     -- Add shadow
     for i = 1, 8 do
         children["Shadow"..tostring(i)] = e("UIStroke", {
-            Color = BLACK,
+            Color = DARK_RED,
             Thickness = 1,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Transparency = i / 9,
@@ -172,7 +172,7 @@ function HelpGui.HelpDisplay(props: {
 	local helpContext = HelpGui.use()
     local frameRef = React.useRef(nil)
 
-    local X_PLACEMENT = 0.6
+    local X_PLACEMENT = 0.75
 
     -- Find offset if there's a message to display
     local offset = UDim2.new(X_PLACEMENT, 0, 0, 0)
