@@ -3,6 +3,7 @@ Priority
 * Fix rotation + spacing interaction
 
 Other
+* Tween camera automatically when stamping
 * Support Folders?
 * Make handles look more distinct?
 * Tutorial header
