@@ -26,7 +26,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		CopyCount = raw.CopyCount or 3,
 		CopySpacing = raw.CopySpacing or 1,
 		CopyPadding = raw.CopyPadding or 0,
-		UseSpacing = raw.UseSpacing or false,
+		UseSpacing = if raw.UseSpacing == nil then true else raw.UseSpacing,
 		MultilySnapByCount = if raw.MultilySnapByCount == nil then true else raw.MultilySnapByCount,
 		-- Don't actually save the rotation
 		Rotation = CFrame.new(),
