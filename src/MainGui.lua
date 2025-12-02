@@ -9,7 +9,6 @@ local Packages = Plugin.Packages
 
 local Settings = require(script.Parent.Settings)
 local createRedupeSession = require(script.Parent.createRedupeSession)
-local Signal = require(Packages.Signal)
 local React = require(Packages.React)
 
 local HelpGui = require(script.Parent.HelpGui)
@@ -24,10 +23,10 @@ local Path2DControlPoint = Path2DControlPoint
 
 local BLACK = Color3.fromRGB(0, 0, 0)
 local GREY = Color3.fromRGB(38, 38, 38)
+local DISABLED_GREY = Color3.fromRGB(72, 72, 72)
 local WHITE = Color3.fromRGB(255, 255, 255)
 local DARK_RED = Color3.new(0.705882, 0, 0)
 local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
-local DARKER_BLUE = Color3.fromRGB(0, 42, 179)
 
 local function SubPanel(props: {
 	Title: string,
@@ -152,21 +151,30 @@ end
 
 local function OperationButton(props: {
 	Text: string,
+	SubText: string?,
 	Height: number,
+	Disabled: boolean,
 	Color: Color3,
 	LayoutOrder: number?,
 	OnClick: () -> (),
 })
+	local text = if props.SubText then
+		string.format('%s\n<i><font size="12" color="#FFF">%s</font></i>', props.Text, props.SubText)
+	else
+		props.Text
+	local color = if props.Disabled then props.Color:Lerp(DISABLED_GREY, 0.5) else props.Color
+
 	return e("TextButton", {
-		BackgroundColor3 = props.Color,
-		TextColor3 = WHITE,
-		Text = props.Text,
+		BackgroundColor3 = color,
+		TextColor3 = if props.Disabled then WHITE:Lerp(DISABLED_GREY, 0.5) else WHITE,
+		Text = text,
+		RichText = true,
 		Size = UDim2.new(1, 0, 0, props.Height),
 		Font = Enum.Font.SourceSansBold,
 		TextSize = 18,
-		AutoButtonColor = true,
+		AutoButtonColor = not props.Disabled,
 		LayoutOrder = props.LayoutOrder,
-		[React.Event.MouseButton1Click] = props.OnClick,
+		[React.Event.MouseButton1Click] = if props.Disabled then nil else props.OnClick,
 	}, {
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 4),
@@ -175,9 +183,13 @@ local function OperationButton(props: {
 end
 
 local function OperationPanel(props: {
+	CanPlace: boolean,
+	CopyCount: number?,
+	GroupAs: string,
 	HandleAction: (string) -> (),
 	LayoutOrder: number?,
 })
+	local canRepeat = props.CanPlace and props.GroupAs == "None"
 	return e(SubPanel, {
 		Title = "Perform Operation",
 		LayoutOrder = props.LayoutOrder,
@@ -198,7 +210,7 @@ local function OperationPanel(props: {
 				BackgroundTransparency = 1,
 			}, {
 				Flex = e("UIFlexItem", {
-					GrowRatio = 2,
+					GrowRatio = 3,
 					FlexMode = Enum.UIFlexMode.Custom,
 				}),
 				ListLayout = e("UIListLayout", {
@@ -210,7 +222,9 @@ local function OperationPanel(props: {
 						HelpRichText = "Place the duplicated objects into the world and close Redupe.",
 					}),
 					Subject = e(OperationButton, {
-						Text = "PLACE & EXIT",
+						Text = if props.CanPlace then `PLACE [{props.CopyCount}] COPIES` else "PLACE & EXIT",
+						SubText = not props.CanPlace and "(Drag to add copies first)",
+						Disabled = not props.CanPlace,
 						Color = ACTION_BLUE,
 						Height = 34,
 						OnClick = function()
@@ -221,12 +235,14 @@ local function OperationPanel(props: {
 				}),
 				StampButton = e(HelpGui.WithHelpIcon, {
 					Help = e(HelpGui.BasicTooltip, {
-						HelpRichText = "Place the duplicated objects and keep Redupe open to place additional copies.",
+						HelpRichText = "Place the duplicated objects and keep Redupe open to place additional copies in the same way.\nDoes not work if grouping is enabled because that would create awkwardly nested groups.",
 					}),
 					Subject = e(OperationButton, {
 						Text = "STAMP & REPEAT",
+						SubText = (props.CanPlace and not canRepeat) and "(Only with grouping: None)" or nil,
+						Disabled = not canRepeat,
 						Color = ACTION_BLUE,
-						Height = 24,
+						Height = 34,
 						OnClick = function()
 							props.HandleAction("stamp")
 						end,
@@ -244,9 +260,9 @@ local function OperationPanel(props: {
 					FlexMode = Enum.UIFlexMode.Custom,
 				}),
 				CancelButton = e(OperationButton, {
-					Text = "CANCEL",
+					Text = "EXIT",
 					Color = DARK_RED,
-					Height = 62,
+					Height = 72,
 					OnClick = function()
 						props.HandleAction("cancel")
 					end,
@@ -578,7 +594,7 @@ local function CopiesPanel(props: {
 	LayoutOrder: number?,
 })
 	return e(SubPanel, {
-		Title = "Generation Method",
+		Title = "Specify Copy...",
 		Padding = UDim.new(0, 4),
 		LayoutOrder = props.LayoutOrder,
 	}, {
@@ -610,16 +626,16 @@ local function CopiesPanel(props: {
 		}),
 		SpacingMultiplier = props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "Multiple of object size to use as spacing between copies.\nA multiple of 1.0 will put the objects exactly back to back.",
+				HelpRichText = "Multiple of object size to use as spacing between copies.\nA multiple of 1.0 will place the copies exactly back to back.",
 			}),
 			Subject = e(NumberInput, {
-				Label = "Spacing Factor",
-				Unit = "x",
+				Label = "Copy Spacing",
+				Unit = "xSize",
 				Value = props.CurrentSettings.CopySpacing,
 				ValueEntered = function(newValue: number)
 					if math.abs(newValue) < 0.01 then
-						warn("Redupe: Spacing factor of 0 will result in the copies being exactly on top of one and other.\n"
-							.. "Unless you plan to rotate a stack of copies around the pivot you probably want a spacing greater than one.")
+						warn("Redupe: A spacing factor of 0 would imply infinitely many copies, not allowed!")
+						return props.CurrentSettings.CopySpacing
 					end
 					props.CurrentSettings.CopySpacing = newValue
 					props.UpdatedSettings()
@@ -633,12 +649,16 @@ local function CopiesPanel(props: {
 				HelpRichText = "Additional studs of padding to add between copies.",
 			}),
 			Subject = e(NumberInput, {
-				Label = "Stud Padding",
+				Label = "Extra Padding",
 				Unit = "studs",
 				Value = props.CurrentSettings.CopyPadding,
 				ValueEntered = function(newValue: number)
+					if newValue < 0 then
+						newValue = 0
+					end
 					props.CurrentSettings.CopyPadding = newValue
 					props.UpdatedSettings()
+					return newValue
 				end,
 			}),
 			LayoutOrder = 4,
@@ -922,7 +942,7 @@ local function ResultPanel(props: {
 	}, {
 		GroupAs = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "What should the copies be grouped under? If none then the copies will be siblings of the original.\nIgnored when using STAMP & REPEAT.",
+				HelpRichText = "What should the copies be grouped under? If none then the copies will be siblings of the original.",
 			}),
 			Subject = e(GroupAsToggle, {
 				CurrentSettings = props.CurrentSettings,
@@ -952,6 +972,7 @@ local function SessionTopInfoRow(props: {
 	ShowHelpToggle: boolean,
 })
 	local helpContext = HelpGui.use()
+	local stHoveredRef = React.useRef(0)
 	local stHovered, setStHovered = React.useState(false)
 	return e("Frame", {
 		Size = UDim2.fromScale(1, 0),
@@ -990,9 +1011,16 @@ local function SessionTopInfoRow(props: {
 			Image = "rbxassetid://140140513285893",
 			LayoutOrder = 2,
 			[React.Event.MouseEnter] = function()
-				setStHovered(true)
+				stHoveredRef.current = stHoveredRef.current + 1
+				local currentHoverId = stHoveredRef.current
+				task.delay(0.5, function()
+					if stHoveredRef.current == currentHoverId then
+						setStHovered(true)
+					end
+				end)
 			end,
 			[React.Event.MouseLeave] = function()
+				stHoveredRef.current = stHoveredRef.current + 1
 				setStHovered(false)
 			end,
 		}),
@@ -1029,14 +1057,10 @@ local function SessionTopInfoRow(props: {
 	})
 end
 
-local function SessionView(props: {
-	CurrentSetting: Settings.RedupeSettings,
-	UpdatedSettings: () -> (),
-	HandleAction: (string) -> (),
-})
-	local function beginDrag(instance, x, y)
+local function createBeginDragFunction(settings: Settings.RedupeSettings, updatedSettings: () -> ())
+	return function(instance, x, y)
 		local startMouseLocation = UserInputService:GetMouseLocation()
-		local startWindowPosition = props.CurrentSettings.WindowPosition
+		local startWindowPosition = settings.WindowPosition
 		task.spawn(function()
 			local previousDelta = Vector2.new()
 			while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
@@ -1044,13 +1068,22 @@ local function SessionView(props: {
 				local delta = newMouseLocation - startMouseLocation
 				if delta ~= previousDelta then
 					previousDelta = delta
-					props.CurrentSettings.WindowPosition = startWindowPosition + delta
-					props.UpdatedSettings()
+					settings.WindowPosition = startWindowPosition + delta
+					updatedSettings()
 				end
 				task.wait()
 			end
 		end)
 	end
+end
+
+local function SessionView(props: {
+	CanPlace: boolean,
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	HandleAction: (string) -> (),
+})
+	local beginDrag = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
 
 	return e("ImageButton", {
 		Image = "",
@@ -1072,6 +1105,9 @@ local function SessionView(props: {
 			ShowHelpToggle = true,
 		}),
 		OperationPanel = e(OperationPanel, {
+			GroupAs = props.CurrentSettings.GroupAs,
+			CopyCount = props.CurrentSettings.CopyCount,
+			CanPlace = props.CanPlace,
 			HandleAction = props.HandleAction,
 			LayoutOrder = 2,
 		}),
@@ -1093,13 +1129,19 @@ local function SessionView(props: {
 	})
 end
 
-local function EmptySessionView()
+local function EmptySessionView(props: {
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+})
+	local beginDrag = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
+
 	return e("ImageButton", {
 		Image = "",
 		AutoButtonColor = false,
 		Size = UDim2.new(0, 240, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		[React.Event.MouseButton1Down] = beginDrag,
 	}, {
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 8),
@@ -1113,7 +1155,7 @@ local function EmptySessionView()
 			ShowHelpToggle = false,
 		}),
 		InfoLabel = e("TextLabel", {
-			Size = UDim2.fromScale(1, 0),
+			Size = UDim2.new(1, 0, 0, 60),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -1126,7 +1168,7 @@ local function EmptySessionView()
 		}, {
 			Padding = e("UIPadding", {
 				PaddingBottom = UDim.new(0, 10),
-				PaddingTop = UDim.new(0, 10),
+				PaddingTop = UDim.new(0, 5),
 				PaddingLeft = UDim.new(0, 10),
 				PaddingRight = UDim.new(0, 10),
 			}),
@@ -1136,6 +1178,7 @@ end
 
 local function MainGui(props: {
 	HasSession: boolean,
+	CanPlace: boolean,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
@@ -1146,17 +1189,21 @@ local function MainGui(props: {
 		UpdatedSettings = props.UpdatedSettings,
 	}, {
 		e("Frame", {
-			Size = UDim2.fromOffset(settings.WindowSize.X, settings.WindowSize.Y),
+			Size = UDim2.fromOffset(240, 0),
 			Position = UDim2.fromOffset(settings.WindowPosition.X + 350, settings.WindowPosition.Y),
 			BackgroundTransparency = 1,
 		}, {
 			Content = if props.HasSession
 				then e(SessionView, {
+					CanPlace = props.CanPlace,
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
 					HandleAction = props.HandleAction,
 				})
-				else e(EmptySessionView),
+				else e(EmptySessionView, {
+					CurrentSettings = props.CurrentSettings,
+					UpdatedSettings = props.UpdatedSettings,
+				}),
 			HelpDisplay = e(HelpGui.HelpDisplay),
 		}),
 	})

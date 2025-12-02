@@ -1,10 +1,8 @@
-local InitialSize = Vector2.new(300, 200)
-local InitialPosition = Vector2.new(100, 100)
+local InitialPosition = Vector2.new(32, 32)
 local kSettingsKey = "redupeState"
 
 export type RedupeSettings = {
 	WindowPosition: Vector2,
-	WindowSize: Vector2,
 	CopyCount: number,
 	CopySpacing: number,
 	CopyPadding: number,
@@ -25,10 +23,6 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 			raw.WindowPositionX or InitialPosition.X,
 			raw.WindowPositionY or InitialPosition.Y
 		),
-		WindowSize = Vector2.new(
-			raw.WindowSizeX or InitialSize.X,
-			raw.WindowSizeY or InitialSize.Y
-		),
 		CopyCount = raw.CopyCount or 3,
 		CopySpacing = raw.CopySpacing or 1,
 		CopyPadding = raw.CopyPadding or 0,
@@ -47,8 +41,6 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 	plugin:SetSetting(kSettingsKey, {
 		WindowPositionX = settings.WindowPosition.X,
 		WindowPositionY = settings.WindowPosition.Y,
-		WindowSizeX = settings.WindowSize.X,
-		WindowSizeY = settings.WindowSize.Y,
 		CopyCount = settings.CopyCount,
 		CopySpacing = settings.CopySpacing,
 		CopyPadding = settings.CopyPadding,

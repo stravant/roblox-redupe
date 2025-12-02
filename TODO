@@ -1,2 +1,9 @@
 * Support Folders?
 * Make handles look more distinct?
+* Tutorial header
+* Close UI when toolbar button clicked with no selection or no preview
+* Grey out place buttons until handles are used
+* Make rotate handles smaller
+* Fix rotation + spacing interaction
+* Make UI dockable as a panel.
+* Allow negative padding (have to be careful about negative size resulting)

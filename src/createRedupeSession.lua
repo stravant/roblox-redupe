@@ -94,6 +94,7 @@ export type SessionState = {
 	RelativeEndCFrame: CFrame,
 	EndDeltaSize: Vector3,
 	EndDeltaPosition: Vector3,
+	PrimaryAxis: Vector3?,
 }
 
 local function createRedupeSession(plugin: Plugin, targets: { Instance }, currentSettings: Settings.RedupeSettings, previousState: SessionState?)
@@ -238,7 +239,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		local offsetOnAxis = draggerContext.PrimaryAxis * offset.Position
 		offset -= offsetOnAxis
 		local offsetMagnitude = offsetOnAxis.Magnitude
-		local snappedMagnitude = math.floor(offsetMagnitude / sizeOnAxis + 0.5) * sizeOnAxis
+		local newCount = math.floor(offsetMagnitude / sizeOnAxis + 0.5)
+		if newCount == 0 then
+			-- Need at least one copy so we don't lose the primary axis.
+			newCount = 1
+		end
+		local snappedMagnitude = newCount * sizeOnAxis
 		local newOffset = offsetOnAxis.Unit * snappedMagnitude
 		offset += newOffset
 		draggerContext.EndCFrame = draggerContext.StartCFrame * offset
@@ -352,7 +358,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		draggerContext.EndDeltaPosition = oldOffsetPer * (newCount - 1)
 	end
 
-	local function updatePlacement(done: boolean): {{ Instance }}
+	local function updatePlacement(done: boolean): {{ Instance }}?
 		ghostPreview.hide()
 
 		updatePrimaryAxisDisplay()
@@ -407,6 +413,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 		-- Remember the copy count for snapping purposes
 		draggerContext.SnapMultiplier = copyCount - 1
+		currentSettings.CopyCount = copyCount
 		return results
 	end
 
@@ -446,7 +453,17 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				}),
 				RotateHandles.new(draggerContext, {
 					GetBoundingBox = function()
-						return draggerContext.StartCFrame * currentSettings.Rotation,
+						if not draggerContext.PrimaryAxis then
+							return draggerContext.StartCFrame,
+								Vector3.zero,
+								Vector3.zero
+						end
+						-- Offset the position the rotate handles are shown around opposite to the offset
+						-- so that the rotate handles don't overlap the other handles excessively.
+						local offset = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame).Position * draggerContext.PrimaryAxis
+						local offsetDirection = -offset.Unit
+						local baseCFrame = draggerContext.StartCFrame * CFrame.new(offsetDirection * ((size) + Vector3.one * 4))
+						return baseCFrame * currentSettings.Rotation,
 							Vector3.zero,
 							Vector3.zero
 					end,
@@ -530,7 +547,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			RelativeEndCFrame = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame),
 			EndDeltaSize = draggerContext.EndDeltaSize,
 			EndDeltaPosition = draggerContext.EndDeltaPosition,
+			PrimaryAxis = draggerContext.PrimaryAxis,
 		}
+	end
+	session.CanPlace = function(): boolean
+		return draggerContext.PrimaryAxis ~= nil
 	end
 	session.Destroy = function()
 		if recordingInProgress then
@@ -544,20 +565,34 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		primaryAxisDisplay:Destroy()
 		rotatedAxisDisplay:Destroy()
 	end
-	session.Commit = function()
+	session.Commit = function(groupResults: boolean)
 		local finalResults = updatePlacement(true)
-		local createdContainers = packageResults(finalResults)
+		if not finalResults then
+			-- Nothing objects placed
+			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
+			recordingInProgress = nil
+			return session.GetState()
+		end
+
+		-- Put results into containers if needed
+		local createdContainers
+		if groupResults then
+			createdContainers = packageResults(finalResults)
+		else
+			createdContainers = {}
+		end
 		if #createdContainers > 0 then
 			Selection:Set(createdContainers)
 		else
 			Selection:Set(finalResults[#finalResults])
 		end
+
 		if recordingInProgress then
 			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Commit)
-			recordingInProgress = false
+			recordingInProgress = nil
 		else
 			warn("Redupe: ChangeHistory Recording failed, fall back to adding waypoint.")
-			ChangeHistoryService:AddWaypoint("Redupe Changes")
+			ChangeHistoryService:SetWaypoint("Redupe Changes")
 		end
 		primaryAxisDisplay:Destroy()
 		rotatedAxisDisplay:Destroy()
@@ -573,6 +608,16 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		fixedSelection.SelectionChanged:Fire() -- Cause a dragger update
 	end
 	session.ChangeSignal = changeSignal
+
+	-- Restore previous state if requested
+	if previousState then
+		draggerContext.EndCFrame = draggerContext.StartCFrame * previousState.RelativeEndCFrame
+		draggerContext.EndDeltaSize = previousState.EndDeltaSize
+		draggerContext.EndDeltaPosition = previousState.EndDeltaPosition
+		draggerContext.PrimaryAxis = previousState.PrimaryAxis
+		session.Update()
+	end
+
 	return session
 end
 

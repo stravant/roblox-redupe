@@ -64,6 +64,7 @@ return function(plugin: Plugin)
 	local function updateUI()
 		if reactRoot then
 			reactRoot:render(React.createElement(MainGui, {
+				CanPlace = session and session.CanPlace(),
 				HasSession = session ~= nil,
 				CurrentSettings = activeSettings,
 				UpdatedSettings = function()
@@ -134,6 +135,9 @@ return function(plugin: Plugin)
 		if temporarilyIgnoreSelectionChanges then
 			return
 		end
+		-- Kill rotation if we switch selected object, it just feels weird to keep in practice.
+		print("Reset rotation")
+		activeSettings.Rotation = CFrame.new()
 		tryCreateSession(if session then session.GetState() else nil)
 	end
 
@@ -151,18 +155,18 @@ return function(plugin: Plugin)
 		-- Ignore selection changes until we're done changing the selection
 		-- to the newly created objects.
 		temporarilyIgnoreSelectionChanges = true
-		task.defer(function()
-			temporarilyIgnoreSelectionChanges = false
-		end)
 		if action == "cancel" then
 			closeRequested()
 		elseif action == "stamp" then
-			local sessionState = session.Commit()
+			local sessionState = session.Commit(false)
 			tryCreateSession(sessionState)
 		elseif action == "done" then
-			session.Commit()
+			session.Commit(true)
 			closeRequested()
 		end
+		task.defer(function()
+			temporarilyIgnoreSelectionChanges = false
+		end)
 	end
 
 	-- Always get a fresh session when the user clicks the button to provide
