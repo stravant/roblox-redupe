@@ -1,6 +1,7 @@
 Priority
 * Allow negative padding (have to be careful about negative size resulting)
 * Fix rotation + spacing interaction
+* Somehow support extrude
 
 Other
 * Tween camera automatically when stamping

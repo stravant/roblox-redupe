@@ -3,7 +3,7 @@ local CoreGui = game:GetService("CoreGui")
 local Selection = game:GetService("Selection")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
-local NEW_RIBBON_ICON = "rbxassetid://140448476907799"
+local NEW_RIBBON_ICON = "rbxassetid://98256996626224"
 
 local Packages = script.Parent.Parent.Packages
 
