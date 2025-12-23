@@ -137,7 +137,10 @@ return function(plugin: Plugin)
 		end
 		-- Kill rotation if we switch selected object, it just feels weird to keep in practice.
 		activeSettings.Rotation = CFrame.new()
-		tryCreateSession(if session then session.GetState() else nil)
+		-- It might be interesting to try to preserve state here
+		-- but that doesn't seem to be working well in practice.
+		--tryCreateSession(if session then session.GetState() else nil)
+		tryCreateSession()
 	end
 
 	local function createUI()
