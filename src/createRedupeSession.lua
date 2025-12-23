@@ -4,10 +4,10 @@ local CoreGui = game:GetService("CoreGui")
 local DraggerService = game:GetService("DraggerService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
+local TweenService = game:GetService("TweenService")
 
 local Packages = script.Parent.Parent.Packages
 
-local Signal = require(Packages.Signal)
 local DraggerFramework = require(Packages.DraggerFramework)
 local DraggerSchemaCore = require(Packages.DraggerSchemaCore)
 local Roact = require(Packages.Roact)
@@ -97,6 +97,35 @@ export type SessionState = {
 	PrimaryAxis: Vector3?,
 }
 
+-- Really messy, could be cleaned up a lot.
+local function tweenCamera(globalTransform: CFrame)
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	task.spawn(function()
+		local startCFrame = camera.CFrame
+		local endCFrame = globalTransform * startCFrame
+		local startFocus = camera.Focus
+		local endFocus = globalTransform * startFocus
+
+		-- On render step
+		local DURATION = 0.2
+		local elapsed = 0
+		while elapsed < DURATION do
+			local dt = task.wait()
+			elapsed += dt
+			local alpha = math.clamp(elapsed / DURATION, 0, 1)
+			alpha = TweenService:GetValue(alpha, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			local interpCFrame = startCFrame:Lerp(endCFrame, alpha)
+			local interpFocus = startFocus:Lerp(endFocus, alpha)
+			camera.Focus = CFrame.new(interpFocus.Position)
+			camera.CFrame = CFrame.lookAlong(interpCFrame.Position, interpCFrame.LookVector)
+		end
+	end)
+end
+
 local function createRedupeSession(plugin: Plugin, targets: { Instance }, currentSettings: Settings.RedupeSettings, previousState: SessionState?)
 	local session = {}
 
@@ -119,6 +148,13 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- Get the bounds
 	local info = DraggerSchemaCore.SelectionInfo.new(draggerContext, targets)
 	local center, boundsOffset, size = info:getLocalBoundingBox()
+
+	-- If we have a previous center, try to tween the camera by
+	-- the difference
+	if previousState then
+		local globalTransform = center * previousState.Center:Inverse()
+		tweenCamera(globalTransform)
+	end
 
 	-- Kind of ugly, needed to make switching between modes work easily to
 	-- preserve the copy count.
@@ -549,6 +585,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 	session.GetState = function()
 		return {
+			Center = center,
 			RelativeEndCFrame = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame),
 			EndDeltaSize = draggerContext.EndDeltaSize,
 			EndDeltaPosition = draggerContext.EndDeltaPosition,
