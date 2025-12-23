@@ -187,6 +187,7 @@ function HelpGui.HelpDisplay(props: {
 	return e("Frame", {
         Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1,
+		ZIndex = 2, -- hardcode ZIndex here, hack
         ref = frameRef,
     }, {
         HelpContent = helpContext.HelpMessage and e("Frame", {
