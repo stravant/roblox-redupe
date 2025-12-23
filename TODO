@@ -4,6 +4,7 @@ Priority
 * Somehow support extrude
 
 Other
+* Make the panel anchor to the nearest window edge
 * Tween camera automatically when stamping
 * Support Folders?
 * Make handles look more distinct?

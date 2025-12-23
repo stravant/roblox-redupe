@@ -22,7 +22,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		WindowPosition = Vector2.new(
 			raw.WindowPositionX or InitialPosition.X,
 			raw.WindowPositionY or InitialPosition.Y
-		),
+		):Max(Vector2.new(0, 0)), -- Make sure the panel is onscreen
 		CopyCount = raw.CopyCount or 3,
 		CopySpacing = raw.CopySpacing or 1,
 		CopyPadding = raw.CopyPadding or 0,
