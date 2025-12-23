@@ -1155,11 +1155,11 @@ local function EmptySessionView(props: {
 			ShowHelpToggle = false,
 		}),
 		InfoLabel = e("TextLabel", {
-			Size = UDim2.new(1, 0, 0, 60),
+			Size = UDim2.new(1, 0, 0, 120),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
-			Text = "Select at least one Part or Model to duplicate.",
+			Text = "Select at least one Part, Model, or Folder to duplicate.\nThen drag the handles to add or configure duplicates and hit Place to confirm.",
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.SourceSans,

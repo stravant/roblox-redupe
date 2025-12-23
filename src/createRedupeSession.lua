@@ -520,7 +520,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			else
 				local container = Instance.new(currentSettings.GroupAs)
 				if currentSettings.GroupAs == "Model" then
-					container.WorldPivot = target:GetPivot()
+					if target:IsA("PVInstance") then
+						container.WorldPivot = target:GetPivot()
+					else
+						container.WorldPivot = center
+					end
 				end
 				container.Name = target.Name .. "Copies"
 				container.Parent = target.Parent
