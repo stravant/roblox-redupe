@@ -240,32 +240,36 @@ function RotateHandles:render(hoveredHandleId)
 
 	if self._draggingHandleId and self._handles[self._draggingHandleId] then
 		local handleProps = self._handles[self._draggingHandleId]
+		local HALF_PI = math.pi / 2
+		local snapStartAngle = math.floor(self._startAngle / HALF_PI + 0.5) * HALF_PI
+		local startAngle = snapStartAngle - self._draggingLastGoodDelta
+		local endAngle = snapStartAngle
 		children[self._draggingHandleId] = Roact.createElement(handleProps.View, {
 			HandleCFrame = handleProps.HandleCFrame,
 			Color = handleProps.Color,
 			AngleOffset = handleProps.AngleOffset,
-			StartAngle = self._startAngle - self._draggingLastGoodDelta,
-			EndAngle = self._startAngle,
+			StartAngle = startAngle,
+			EndAngle = endAngle,
 			Scale = handleProps.Scale,
 			Hovered = false,
 			RadiusOffset = handleProps.RadiusOffset,
 			TickAngle = tickAngle,
 		})
 
-		-- Show the other handles, but thinner
-		for handleId, otherHandleProps in pairs(self._handles) do
-			if handleId ~= self._draggingHandleId then
-				local offset = RotateHandleDefinitions[handleId].Offset
-				children[handleId] = Roact.createElement(otherHandleProps.View, {
-					HandleCFrame = self._boundingBox.CFrame * offset,
-					AngleOffset = otherHandleProps.AngleOffset,
-					Color = Colors.makeDimmed(otherHandleProps.Color),
-					Scale = otherHandleProps.Scale,
-					Thin = true,
-					RadiusOffset = otherHandleProps.RadiusOffset,
-				})
-			end
-		end
+		-- -- Show the other handles, but thinner
+		-- for handleId, otherHandleProps in pairs(self._handles) do
+		-- 	if handleId ~= self._draggingHandleId then
+		-- 		local offset = RotateHandleDefinitions[handleId].Offset
+		-- 		children[handleId] = Roact.createElement(otherHandleProps.View, {
+		-- 			HandleCFrame = self._boundingBox.CFrame * offset,
+		-- 			AngleOffset = otherHandleProps.AngleOffset,
+		-- 			Color = Colors.makeDimmed(otherHandleProps.Color),
+		-- 			Scale = otherHandleProps.Scale,
+		-- 			Thin = true,
+		-- 			RadiusOffset = otherHandleProps.RadiusOffset,
+		-- 		})
+		-- 	end
+		-- end
 
 		-- if getFFlagSummonPivot() then
 		-- 	children.ImplementationRendered =
