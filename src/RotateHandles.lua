@@ -10,8 +10,8 @@ local Colors = require(DraggerFramework.Utility.Colors)
 local Math = require(DraggerFramework.Utility.Math)
 local StandaloneSelectionBox = require(DraggerFramework.Components.StandaloneSelectionBox)
 local roundRotation = require(DraggerFramework.Utility.roundRotation)
-local snapRotationToPrimaryDirection = require(DraggerFramework.Utility.snapRotationToPrimaryDirection)
 
+local PartialRotateHandleView = require(script.Parent.PartialRotateHandleView)
 local RotateHandleView = require(DraggerFramework.Components.RotateHandleView)
 local SummonHandlesNote = require(DraggerFramework.Components.SummonHandlesNote)
 local SummonHandlesHider = require(DraggerFramework.Components.SummonHandlesHider)
@@ -41,18 +41,28 @@ local RotateHandleDefinitions = {
 		Offset = CFrame.fromMatrix(Vector3.new(), Vector3.new(1, 0, 0), Vector3.new(0, 1, 0), Vector3.new(0, 0, 1)),
 		Color = Colors.X_AXIS,
 		RadiusOffset = 0.00,
-		HideWhenTempPart = true,
+		ScaleFactor = 1.0,
+		View = PartialRotateHandleView,
+		AngleOffset = math.rad(90),
+		LocalAxis = Vector3.xAxis,
 	},
 	YAxis = {
 		Offset = CFrame.fromMatrix(Vector3.new(), Vector3.new(0, 1, 0), Vector3.new(0, 0, 1), Vector3.new(1, 0, 0)),
 		Color = Colors.Y_AXIS,
 		RadiusOffset = 0.01,
+		ScaleFactor = 1.0,
+		View = PartialRotateHandleView,
+		AngleOffset = 0,
+		LocalAxis = Vector3.yAxis,
 	},
 	ZAxis = {
 		Offset = CFrame.fromMatrix(Vector3.new(), Vector3.new(0, 0, 1), Vector3.new(1, 0, 0), Vector3.new(0, 1, 0)),
 		Color = Colors.Z_AXIS,
 		RadiusOffset = 0.02,
-		HideWhenTempPart = true,
+		ScaleFactor = 0.6,
+		View = RotateHandleView,
+		AngleOffset = 0,
+		LocalAxis = Vector3.zAxis,
 	},
 }
 
@@ -208,7 +218,7 @@ end
 function RotateHandles:hitTest(mouseRay, ignoreExtraThreshold)
 	local closestHandleId, closestHandleDistance = nil, math.huge
 	for handleId, handleProps in pairs(self._handles) do
-		local distance = RotateHandleView.hitTest(handleProps, mouseRay)
+		local distance = handleProps.View.hitTest(handleProps, mouseRay)
 		if distance and distance < closestHandleDistance then
 			closestHandleDistance = distance
 			closestHandleId = handleId
@@ -230,12 +240,13 @@ function RotateHandles:render(hoveredHandleId)
 
 	if self._draggingHandleId and self._handles[self._draggingHandleId] then
 		local handleProps = self._handles[self._draggingHandleId]
-		children[self._draggingHandleId] = Roact.createElement(RotateHandleView, {
+		children[self._draggingHandleId] = Roact.createElement(handleProps.View, {
 			HandleCFrame = handleProps.HandleCFrame,
 			Color = handleProps.Color,
+			AngleOffset = handleProps.AngleOffset,
 			StartAngle = self._startAngle - self._draggingLastGoodDelta,
 			EndAngle = self._startAngle,
-			Scale = self._scale,
+			Scale = handleProps.Scale,
 			Hovered = false,
 			RadiusOffset = handleProps.RadiusOffset,
 			TickAngle = tickAngle,
@@ -245,12 +256,13 @@ function RotateHandles:render(hoveredHandleId)
 		for handleId, otherHandleProps in pairs(self._handles) do
 			if handleId ~= self._draggingHandleId then
 				local offset = RotateHandleDefinitions[handleId].Offset
-				children[handleId] = Roact.createElement(RotateHandleView, {
+				children[handleId] = Roact.createElement(otherHandleProps.View, {
 					HandleCFrame = self._boundingBox.CFrame * offset,
+					AngleOffset = otherHandleProps.AngleOffset,
 					Color = Colors.makeDimmed(otherHandleProps.Color),
-					Scale = self._scale,
+					Scale = otherHandleProps.Scale,
 					Thin = true,
-					RadiusOffset = handleProps.RadiusOffset,
+					RadiusOffset = otherHandleProps.RadiusOffset,
 				})
 			end
 		end
@@ -272,13 +284,14 @@ function RotateHandles:render(hoveredHandleId)
 			else
 				color = Colors.makeDimmed(color)
 			end
-			children[handleId] = Roact.createElement(RotateHandleView, {
+			children[handleId] = Roact.createElement(handleProps.View, {
 				HandleCFrame = handleProps.HandleCFrame,
 				Color = color,
-				Scale = self._scale,
+				Scale = handleProps.Scale,
 				Hovered = hovered,
 				RadiusOffset = handleProps.RadiusOffset,
 				TickAngle = tickAngleToUse,
+				AngleOffset = handleProps.AngleOffset,
 			})
 		end
 	end
@@ -428,19 +441,22 @@ function RotateHandles:_updateHandles()
 	if self._selectionInfo:isEmpty() or not self._props.Visible() then
 		self._handles = {}
 	else
+		local primaryAxis = self._draggerContext.PrimaryAxis
 		for handleId, handleDefinition in pairs(RotateHandleDefinitions) do
-			if not handleDefinition.HideWhenTempPart or true then
-				self._handles[handleId] = {
-					HandleCFrame = getEngineFeatureModelPivotVisual() and
-						(self._boundingBox.CFrame * self:_getBasisOffset() * handleDefinition.Offset) or
-						(self._boundingBox.CFrame * handleDefinition.Offset),
-					Color = handleDefinition.Color,
-					RadiusOffset = handleDefinition.RadiusOffset,
-					Scale = self._scale,
-				}
-			else
-				self._handles[handleId] = nil
-			end
+			local localAxis = handleDefinition.LocalAxis
+			local isPrimary = localAxis:FuzzyEq(primaryAxis)
+			local lastAxisSigned = primaryAxis:Cross(localAxis)
+			local disambiguator = lastAxisSigned:Dot(lastAxisSigned:Abs())
+			self._handles[handleId] = {
+				HandleCFrame =
+					self._boundingBox.CFrame *
+					self:_getBasisOffset() * handleDefinition.Offset,
+				Color = handleDefinition.Color,
+				RadiusOffset = handleDefinition.RadiusOffset,
+				Scale = self._scale * (isPrimary and 0.5 or 1.0),
+				View = isPrimary and RotateHandleView or PartialRotateHandleView,
+				AngleOffset = (disambiguator == 1) and math.rad(90) or 0,
+			}
 		end
 	end
 end

@@ -463,6 +463,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						local offset = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame).Position * draggerContext.PrimaryAxis
 						local offsetDirection = -offset.Unit
 						local baseCFrame = draggerContext.StartCFrame * CFrame.new(offsetDirection * ((size) + Vector3.one * 4))
+						baseCFrame = draggerContext.StartCFrame -- Offset isn't working well
 						return baseCFrame * currentSettings.Rotation,
 							Vector3.zero,
 							Vector3.zero
