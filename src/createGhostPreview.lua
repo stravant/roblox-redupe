@@ -60,7 +60,7 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 					warn(`Unsupported target type {copy.ClassName} for ghost preview`)
 				end
 			end
-			copy.Parent = clonedTarget.Parent
+			copy.Parent = targets[i].Parent
 			newItem.instances[i] = copy
 		end
 		return newItem
