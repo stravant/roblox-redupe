@@ -136,7 +136,6 @@ return function(plugin: Plugin)
 			return
 		end
 		-- Kill rotation if we switch selected object, it just feels weird to keep in practice.
-		print("Reset rotation")
 		activeSettings.Rotation = CFrame.new()
 		tryCreateSession(if session then session.GetState() else nil)
 	end
@@ -169,14 +168,24 @@ return function(plugin: Plugin)
 		end)
 	end
 
-	-- Always get a fresh session when the user clicks the button to provide
-	-- them a simple model.
 	button.Click:Connect(function()
-		button:SetActive(true)
-		if not uiPresent() then
-			createUI()
+		-- If the plugin is already open but nothing is selected treat the
+		-- button press as closing the panel.
+		if uiPresent() and (#getFilteredSelection() == 0) then
+			button:SetActive(false)
+			destroyUI()
+			destroySession()
+		else
+			-- If the plugin is not open, open it and try to begin a session.
+			-- If there is no selection the user will see a UI telling them
+			-- to select something.
+			activeSettings.Rotation = CFrame.new() -- Need to reset rotation here
+			button:SetActive(true)
+			if not uiPresent() then
+				createUI()
+			end
+			tryCreateSession()
 		end
-		tryCreateSession()
 	end)
 
 	-- When the user selects a different tool, stop doing anything, destroy the
