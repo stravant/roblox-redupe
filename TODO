@@ -1,6 +1,8 @@
+Progress
+
 Priority
-* Allow negative padding (have to be careful about negative size resulting)
 * Somehow support extrude
+* Figure out how to allow resizing smaller than something started
 
 Other
 * Make the panel anchor to the nearest window edge

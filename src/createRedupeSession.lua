@@ -234,7 +234,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				local lengthOnAxis = math.abs(draggerContext.PrimaryAxis:Dot(offset))
 				local unPaddedLengthPer = ((lengthOnAxis / (lastCopiesUsed - 1)) - currentSettings.CopyPadding)
 				local spacing = unPaddedLengthPer / draggerContext.PrimaryAxis:Dot(size)
-				currentSettings.CopySpacing = spacing
+				if spacing < 0.01 then
+					warn("Redupe: Spacing settings don't work for this selection (E.g.: A negative padding equal to the selection's size)")
+					currentSettings.CopySpacing = 1
+				else
+					currentSettings.CopySpacing = spacing
+				end
 			end
 		else
 			-- Switch count. Update the count to what we last generated.
@@ -250,7 +255,14 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	local function updateSnapSize()
 		if draggerContext.PrimaryAxis then
 			local vectorPadding = draggerContext.PrimaryAxis * currentSettings.CopyPadding
-			draggerContext.SnapSize = size * currentSettings.CopySpacing + vectorPadding
+			local paddedSize = size * currentSettings.CopySpacing + vectorPadding
+			-- Padded size must be greater than zero on every axis. If any axis
+			-- is equal to zero default it to one to avoid divide by zero.
+			draggerContext.SnapSize = Vector3.new(
+				(paddedSize.X > 0.01) and paddedSize.X or 1,
+				(paddedSize.Y > 0.01) and paddedSize.Y or 1,
+				(paddedSize.Z > 0.01) and paddedSize.Z or 1
+			)
 		else
 			draggerContext.SnapSize = size * currentSettings.CopySpacing
 		end
@@ -375,6 +387,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			local offset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
 			local offsetOnAxis = (draggerContext.PrimaryAxis * offset).Magnitude
 			local sizeOnAxis = (draggerContext.PrimaryAxis * draggerContext.SnapSize).Magnitude
+			if math.abs(sizeOnAxis) < 0.01 then
+				warn(`Redupe: Spacing settings result in too many copies ({offsetOnAxis / sizeOnAxis})`)
+				return nil
+			end
 			return math.floor(offsetOnAxis / sizeOnAxis + 0.5) + 1
 		elseif currentSettings.CopyCount < 2 then
 			-- Nothing to create

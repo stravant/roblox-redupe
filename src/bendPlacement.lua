@@ -15,6 +15,14 @@ local function approxSign(n: number)
 	end
 end
 
+local function fixZeroSize(v: Vector3): Vector3
+	return Vector3.new(
+		(v.X > 0.01) and v.X or 1,
+		(v.Y > 0.01) and v.Y or 1,
+		(v.Z > 0.01) and v.Z or 1
+	)
+end
+
 local function bendPlacement(placement: Placement, axis: Vector3, relativeBend: CFrame,
 	touchSide: number, paddingAmount: number, spacingMultiplier: number)
 	local relativeOffset = placement.Offset
@@ -33,6 +41,7 @@ local function bendPlacement(placement: Placement, axis: Vector3, relativeBend: 
 	-- but they don't get used in the subsequent code)
 	referenceSize *= spacingMultiplier
 	referenceSize += axis * paddingAmount
+	referenceSize = fixZeroSize(referenceSize) -- Ensure the settings didn't result in zero size
 
 	local perpOffset = CFrame.new(perpSize * directions * touchSide * 0.5)
 	local paraOffset = CFrame.new(forwardAxis * referenceSize * 0.5)

@@ -653,9 +653,6 @@ local function CopiesPanel(props: {
 				Unit = "studs",
 				Value = props.CurrentSettings.CopyPadding,
 				ValueEntered = function(newValue: number)
-					if newValue < 0 then
-						newValue = 0
-					end
 					props.CurrentSettings.CopyPadding = newValue
 					props.UpdatedSettings()
 					return newValue
