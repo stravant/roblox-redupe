@@ -13,6 +13,7 @@ export type RedupeSettings = {
 	GroupAs: string,
 	AddOriginalToGroup: boolean,
 	HaveHelp: boolean,
+	DoneTutorial: boolean,
 }
 
 local function loadSettings(plugin: Plugin): RedupeSettings
@@ -34,6 +35,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		GroupAs = raw.GroupAs or "None",
 		AddOriginalToGroup = if raw.AddOriginalToGroup == nil then true else raw.AddOriginalToGroup,
 		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
+		DoneTutorial = if raw.DoneTutorial ~= nil then raw.DoneTutorial else false,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)
@@ -50,6 +52,7 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 		GroupAs = settings.GroupAs,
 		AddOriginalToGroup = settings.AddOriginalToGroup,
 		HaveHelp = settings.HaveHelp,
+		DoneTutorial = settings.DoneTutorial,
 	})
 end
 

@@ -35,13 +35,13 @@ return function(plugin: Plugin)
 
 	local activeSettings = Settings.Load(plugin)
 
-	local selectionChangedCn = nil
+	local selectionChangedCn: RBXScriptConnection? = nil
 	local pluginActive = false
 
-	local undoCn = nil
+	local undoCn: RBXScriptConnection? = nil
 
-	local reactRoot;
-	local reactScreenGui;
+	local reactRoot: ReactRoblox.RootType? = nil
+	local reactScreenGui: ScreenGui? = nil
 
 	local temporarilyIgnoreSelectionChanges = false
 
@@ -54,6 +54,8 @@ return function(plugin: Plugin)
 		if reactRoot then
 			reactRoot:unmount()
 			reactRoot = nil
+		end
+		if reactScreenGui then
 			reactScreenGui:Destroy()
 			reactScreenGui = nil
 		end
@@ -64,7 +66,7 @@ return function(plugin: Plugin)
 	local function updateUI()
 		if reactRoot then
 			reactRoot:render(React.createElement(MainGui, {
-				CanPlace = session and session.CanPlace(),
+				CanPlace = session and session.CanPlace() or false,
 				HasSession = session ~= nil,
 				CurrentSettings = activeSettings,
 				UpdatedSettings = function()
@@ -80,8 +82,10 @@ return function(plugin: Plugin)
 
 	local function destroySession()
 		if session then
-			session:Destroy()
+			session.Destroy()
 			session = nil
+		end
+		if undoCn then
 			undoCn:Disconnect()
 			undoCn = nil
 		end
@@ -93,8 +97,9 @@ return function(plugin: Plugin)
 		end
 		local targets = getFilteredSelection()
 		if #targets > 0 then
-			session = createRedupeSession(plugin, targets, activeSettings, oldState)
-			session.ChangeSignal:Connect(updateUI)
+			local newSession = createRedupeSession(plugin, targets, activeSettings, oldState)
+			newSession.ChangeSignal:Connect(updateUI)
+			session = newSession
 			updateUI()
 
 			-- Kill the session on undo
@@ -145,11 +150,12 @@ return function(plugin: Plugin)
 
 	local function createUI()
 		selectionChangedCn = Selection.SelectionChanged:Connect(onSelectionChange)
-		reactScreenGui = Instance.new("ScreenGui")
-		reactScreenGui.Name = "RedupeReactUI"
-		reactScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		reactScreenGui.Parent = CoreGui
-		reactRoot = ReactRoblox.createRoot(reactScreenGui)
+		local screenGui = Instance.new("ScreenGui")
+		screenGui.Name = "RedupeReactUI"
+		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		screenGui.Parent = CoreGui
+		reactScreenGui = screenGui
+		reactRoot = ReactRoblox.createRoot(screenGui)
 		updateUI()
 	end
 
@@ -160,9 +166,11 @@ return function(plugin: Plugin)
 		if action == "cancel" then
 			closeRequested()
 		elseif action == "stamp" then
+			assert(session)
 			local sessionState = session.Commit(false)
 			tryCreateSession(sessionState)
 		elseif action == "done" then
+			assert(session)
 			session.Commit(true)
 			closeRequested()
 		end

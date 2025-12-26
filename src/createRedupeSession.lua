@@ -13,15 +13,15 @@ local DraggerSchemaCore = require(Packages.DraggerSchemaCore)
 local Roact = require(Packages.Roact)
 local Signal = require(Packages.Signal)
 
-local Settings = require(script.Parent.Settings)
-local createGhostPreview = require(script.Parent.createGhostPreview)
-local bendPlacement = require(script.Parent.bendPlacement)
+local Settings = require("./Settings")
+local createGhostPreview = require("./createGhostPreview")
+local bendPlacement = require("./bendPlacement")
 
-local DraggerContext_PluginImpl = require(DraggerFramework.Implementation.DraggerContext_PluginImpl)
-local DraggerToolComponent = require(DraggerFramework.DraggerTools.DraggerToolComponent)
-local MoveHandles = require(script.Parent.MoveHandles)
-local ScaleHandles = require(script.Parent.ScaleHandles)
-local RotateHandles = require(script.Parent.RotateHandles)
+local DraggerContext_PluginImpl = (require :: any)(DraggerFramework.Implementation.DraggerContext_PluginImpl)
+local DraggerToolComponent = (require :: any)(DraggerFramework.DraggerTools.DraggerToolComponent)
+local MoveHandles = require("./MoveHandles")
+local ScaleHandles = require("./ScaleHandles")
+local RotateHandles = require("./RotateHandles")
 
 local ROTATE_GRANULARITY_MULTIPLIER = 2
 
@@ -60,7 +60,7 @@ local function createCFrameDraggerSchema(getBoundingBoxFromContextFunc)
 				end,
 			}
 		end,
-	}
+	} :: any -- Okay to not match the cloned type because we're only using part of the schema.
 	return schema
 end
 
@@ -95,6 +95,7 @@ export type SessionState = {
 	EndDeltaSize: Vector3,
 	EndDeltaPosition: Vector3,
 	PrimaryAxis: Vector3?,
+	Center: CFrame,
 }
 
 -- Really messy, could be cleaned up a lot.
@@ -229,7 +230,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		if currentSettings.UseSpacing then
 			-- Switch spacing. Update the spacing to result in what we last
 			-- generated.
-			if draggerContext.PrimaryAxis then
+			if draggerContext.PrimaryAxis and lastCopiesUsed then
 				local offset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
 				local lengthOnAxis = math.abs(draggerContext.PrimaryAxis:Dot(offset))
 				local unPaddedLengthPer = ((lengthOnAxis / (lastCopiesUsed - 1)) - currentSettings.CopyPadding)
@@ -470,7 +471,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	end
 
 	-- Schema
-	local schema = createCFrameDraggerSchema(function(context)
+	local schema = createCFrameDraggerSchema(function(context: typeof(draggerContext))
 		return context.EndCFrame, Vector3.zero, Vector3.zero
 	end)
 
@@ -572,6 +573,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			else
 				local container = Instance.new(currentSettings.GroupAs)
 				if currentSettings.GroupAs == "Model" then
+					assert(typeof(container) == "Model")
 					if target:IsA("PVInstance") then
 						container.WorldPivot = target:GetPivot()
 					else

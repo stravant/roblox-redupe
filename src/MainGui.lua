@@ -15,6 +15,14 @@ local HelpGui = require(script.Parent.HelpGui)
 
 local e = React.createElement
 
+local function createNextOrder()
+	local order = 0
+	return function()
+		order += 1
+		return order
+	end
+end
+
 -- Shim to correct for LPS not knowing about Path2DControlPoint
 type Path2DControlPoint = {
 	new: (udimPos: UDim2, inTangent: UDim2?, outTangent: UDim2?) -> Path2DControlPoint,
@@ -32,7 +40,7 @@ local function SubPanel(props: {
 	Title: string,
 	Padding: UDim?,
 	LayoutOrder: number?,
-	children: React.ReactElement<any, any>?,
+	children: React.ReactElement<any>?,
 })
 	local outlineRef = React.useRef(nil)
 
@@ -223,7 +231,7 @@ local function OperationPanel(props: {
 					}),
 					Subject = e(OperationButton, {
 						Text = if props.CanPlace then `PLACE [{props.CopyCount}] COPIES` else "PLACE & EXIT",
-						SubText = not props.CanPlace and "(Drag to add copies first)",
+						SubText = not props.CanPlace and "(Drag to add copies first)" or nil,
 						Disabled = not props.CanPlace,
 						Color = ACTION_BLUE,
 						Height = 34,
@@ -262,6 +270,7 @@ local function OperationPanel(props: {
 				CancelButton = e(OperationButton, {
 					Text = "EXIT",
 					Color = DARK_RED,
+					Disabled = false,
 					Height = 72,
 					OnClick = function()
 						props.HandleAction("cancel")
@@ -344,7 +353,7 @@ end
 
 -- React component with two side by side chips to pick between Spacing or Count
 local function SpacingOrCountToggle(props: {
-	Session: createRedupeSession.RedupeSession,
+	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	LayoutOrder: number?,
 })
@@ -407,7 +416,7 @@ local function NumberInput(props: {
 	ValueEntered: (number) -> number?,
 	LayoutOrder: number?,
 	ChipColor: Color3?,
-	Grow: boolean,
+	Grow: boolean?,
 })
 	local hasFocus, setHasFocus = React.useState(false)
 
@@ -433,7 +442,7 @@ local function NumberInput(props: {
 	local onFocusLost = React.useCallback(function(object: TextBox, enterPressed: boolean)
 		local newValue = InterpretValue(object.Text)
 		if newValue then
-			local newValue = props.ValueEntered(newValue)
+			newValue = props.ValueEntered(newValue)
 			-- If the value didn't change we need to revert because we won't get rerendered
 			if newValue == props.Value then
 				object.Text = displayText
@@ -443,7 +452,7 @@ local function NumberInput(props: {
 			object.Text = displayText
 		end
 		setHasFocus(false)
-	end, { props.ValueEntered, displayText })
+	end, { props.ValueEntered, displayText } :: {any})
 
 	local onFocused = React.useCallback(function(object: TextBox)
 		setHasFocus(true)
@@ -485,7 +494,7 @@ local function NumberInput(props: {
 			TextSize = 20,
 			LayoutOrder = 2,
 			[React.Event.Focused] = onFocused,
-			[React.Event.FocusLost] = onFocusLost,
+			[React.Event.FocusLost] = onFocusLost :: any,
 			ref = textBoxRef,
 		}, {
 			Corner = e("UICorner", {
@@ -715,6 +724,7 @@ local function RotationDisplay(props: {
 				local rotation = CFrame.fromEulerAnglesXYZ(theta, y, z)
 				props.CurrentSettings.Rotation = rotation
 				props.UpdateSettings()
+				return nil
 			end,
 			LayoutOrder = 1,
 		}),
@@ -728,6 +738,7 @@ local function RotationDisplay(props: {
 				local rotation = CFrame.fromEulerAnglesXYZ(x, theta, z)
 				props.CurrentSettings.Rotation = rotation
 				props.UpdateSettings()
+				return nil
 			end,
 			LayoutOrder = 2,
 		}),
@@ -741,6 +752,7 @@ local function RotationDisplay(props: {
 				local rotation = CFrame.fromEulerAnglesXYZ(x, y, theta)
 				props.CurrentSettings.Rotation = rotation
 				props.UpdateSettings()
+				return nil
 			end,
 			LayoutOrder = 3,
 		}),
@@ -1049,8 +1061,37 @@ local function SessionTopInfoRow(props: {
 				OnClick = function()
 					helpContext.SetHaveHelp(not helpContext.HaveHelp)
 				end,
+				Disabled = false,
 			}),
 		})
+	})
+end
+
+local function TutorialHeader(props: {
+	LayoutOrder: number?,
+	ClickedDone: () -> (),
+})
+	local ref = React.createRef()
+	return e("Frame", {
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = props.LayoutOrder,
+		BackgroundTransparency = 1
+	}, {
+		Padding = e("UIPadding", {
+			PaddingLeft = UDim.new(0, 6),
+			PaddingRight = UDim.new(0, 6),
+			PaddingBottom = UDim.new(0, 4),
+		}),
+		AnimatedLabel = e("ImageLabel", {
+			BackgroundColor3 = Color3.new(1, 0, 0),
+			Size = UDim2.new(1, 0, 0, 100),
+			BorderSizePixel = 0,
+			ImageContent = Content.none,
+			ref = ref,
+		}, {
+
+		}),
 	})
 end
 
@@ -1082,6 +1123,9 @@ local function SessionView(props: {
 })
 	local beginDrag = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
 
+	local showTutorial = not props.CurrentSettings.DoneTutorial and props.CurrentSettings.HaveHelp
+
+	local nextOrder = createNextOrder()
 	return e("ImageButton", {
 		Image = "",
 		AutoButtonColor = false,
@@ -1098,30 +1142,37 @@ local function SessionView(props: {
 			Padding = UDim.new(0, 0),
 		}),
 		TopInfoRow = e(SessionTopInfoRow, {
-			LayoutOrder = 1,
+			LayoutOrder = nextOrder(),
 			ShowHelpToggle = true,
+		}),
+		TutorialHeader = showTutorial and e(TutorialHeader, {
+			LayoutOrder = nextOrder(),
+			ClickedDone = function()
+				props.CurrentSettings.DoneTutorial = true
+				props.UpdatedSettings()
+			end,
 		}),
 		OperationPanel = e(OperationPanel, {
 			GroupAs = props.CurrentSettings.GroupAs,
 			CopyCount = props.CurrentSettings.CopyCount,
 			CanPlace = props.CanPlace,
 			HandleAction = props.HandleAction,
-			LayoutOrder = 2,
+			LayoutOrder = nextOrder(),
 		}),
 		CopiesPanel = e(CopiesPanel, {
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
-			LayoutOrder = 3,
+			LayoutOrder = nextOrder(),
 		}),
 		RotationPanel = e(RotationPanel, {
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
-			LayoutOrder = 4,
+			LayoutOrder = nextOrder(),
 		}),
 		ResultPanel = e(ResultPanel, {
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
-			LayoutOrder = 5,
+			LayoutOrder = nextOrder(),
 		}),
 	})
 end

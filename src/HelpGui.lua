@@ -4,8 +4,6 @@ local Plugin = script.Parent.Parent
 local Packages = Plugin.Packages
 
 local Settings = require(script.Parent.Settings)
-local createRedupeSession = require(script.Parent.createRedupeSession)
-local Signal = require(Packages.Signal)
 local React = require(Packages.React)
 
 local e = React.createElement
@@ -16,60 +14,67 @@ local DARK_RED = Color3.new(0.705882, 0, 0)
 local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
 
 export type HelpContext = {
-    HelpMessage: {
-        Source: Instance,
-        Help: React.ReactElement<any, any>,
-    }?,
-    SetHelpMessage: (source: Instance?, help: React.ReactElement<any, any>?) -> (),
-    HaveHelp: boolean,
-    SetHaveHelp: (boolean) -> (),
+	HelpMessage: {
+		Source: Instance,
+		Help: React.ReactElement<any, any>,
+	}?,
+	SetHelpMessage: (source: Instance?, help: React.ReactElement<any, any>?) -> (),
+	HaveHelp: boolean,
+	SetHaveHelp: (boolean) -> (),
 }
 
-local HelpContext = React.createContext(nil)
+local HelpContext = React.createContext((nil :: any) :: HelpContext)
 
 local HelpGui = {}
 
 function HelpGui.use(): HelpContext
-    return React.useContext(HelpContext)
+	return React.useContext(HelpContext)
 end
 
+type HelpMessageType = {
+	Source: Instance,
+	Help: React.ReactElement<any, any>,
+}
+
+
 function HelpGui.Provider(props: {
-    CurrentSettings: Settings.RedupeSettings,
-    UpdatedSettings: (Settings.RedupeSettings) -> (),
-    children: React.ReactElement<any, any>,
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	children: React.ReactElement<any, any>?,
 })
-    local helpMessage, setHelpMessage = React.useState(nil)
+	local initialHelpMessage: HelpMessageType? = nil
+	local helpMessage, setHelpMessage = React.useState(initialHelpMessage)
 
-    local contextValue = React.useMemo(function()
-        return {
-            HelpMessage = helpMessage,
-            SetHelpMessage = function(source, element)
-                if source == nil and element == nil then
-                    setHelpMessage(nil)
-                else
-                    assert(source and element, "Should not have any one of source / element")
-                    setHelpMessage({
-                        Source = source,
-                        Help = element,
-                    })
-                end
-            end,
-            HaveHelp = props.CurrentSettings.HaveHelp,
-            SetHaveHelp = function(value)
-                props.CurrentSettings.HaveHelp = value
-                props.UpdatedSettings()
-            end,
-        }
-    end, {
-        helpMessage,
-        setHelpMessage,
-        props.CurrentSettings.HaveHelp,
-        props.UpdatedSettings,
-    })
+	local contextValue = React.useMemo(function()
+		return {
+			HelpMessage = helpMessage,
+			SetHelpMessage = function(source, element)
+				if source == nil and element == nil then
+					setHelpMessage(nil)
+				else
+					assert(source and element, "Should not have any one of source / element")
+					setHelpMessage({
+						Source = source,
+						Help = element,
+					})
+				end
+			end,
+			HaveHelp = props.CurrentSettings.HaveHelp,
+			SetHaveHelp = function(value)
+				props.CurrentSettings.HaveHelp = value
+				props.UpdatedSettings()
+			end,
+		}
+	end, {
+		helpMessage,
+		setHelpMessage,
+		props.CurrentSettings.HaveHelp,
+		props.UpdatedSettings,
+	} :: {any})
 
-    return e(HelpContext.Provider, {
-        value = contextValue,
-    }, props.children)
+	return e(HelpContext.Provider, {
+		value = contextValue,
+	}, props.children)
 end
 
 function HelpGui.WithHelpIcon(props: {
@@ -123,8 +128,9 @@ end
 
 function HelpGui.BasicTooltip(props: {
 	HelpRichText: string,
+	LayoutOrder: number?,
 })
-    local children = {
+	local children = {
 		Padding = e("UIPadding", {
 			PaddingBottom = UDim.new(0, 4),
 			PaddingTop = UDim.new(0, 2),
@@ -137,19 +143,19 @@ function HelpGui.BasicTooltip(props: {
 		Stroke = e("UIStroke", {
 			Color = WHITE,
 			Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		}),
-	}
-    -- Add shadow
-    for i = 1, 8 do
-        children["Shadow"..tostring(i)] = e("UIStroke", {
-            Color = DARK_RED,
-            Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Transparency = i / 9,
-            BorderOffset = UDim.new(0, i),
-        })
-    end
+	} :: { [any]: React.ReactNode }
+	-- Add shadow
+	for i = 1, 8 do
+		children["Shadow"..tostring(i)] = e("UIStroke", {
+			Color = DARK_RED,
+			Thickness = 1,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Transparency = i / 9,
+			BorderOffset = UDim.new(0, i),
+		})
+	end
 
 	return e("TextLabel", {
 		Size = UDim2.fromOffset(200, 0),
@@ -170,33 +176,34 @@ function HelpGui.HelpDisplay(props: {
 
 })
 	local helpContext = HelpGui.use()
-    local frameRef = React.useRef(nil)
+	local frameRef = React.useRef(nil)
 
-    local X_PLACEMENT = 0.75
+	local X_PLACEMENT = 0.75
 
-    -- Find offset if there's a message to display
-    local offset = UDim2.new(X_PLACEMENT, 0, 0, 0)
-    if frameRef.current and helpContext.HelpMessage then
-        local offsetY = helpContext.HelpMessage.Source.AbsolutePosition.Y - frameRef.current.AbsolutePosition.Y
-        offset = UDim2.new(X_PLACEMENT, 0, 0, offsetY)
-    end
+	-- Find offset if there's a message to display
+	local offset = UDim2.new(X_PLACEMENT, 0, 0, 0)
+	if frameRef.current and helpContext.HelpMessage then
+		assert(typeof(helpContext.HelpMessage.Source) == "GuiObject")
+		local offsetY = helpContext.HelpMessage.Source.AbsolutePosition.Y - frameRef.current.AbsolutePosition.Y
+		offset = UDim2.new(X_PLACEMENT, 0, 0, offsetY)
+	end
 
-    -- TODO: Possibly display tooltip in a better place if the user has the popup
-    -- near the left of the viewport.
+	-- TODO: Possibly display tooltip in a better place if the user has the popup
+	-- near the left of the viewport.
 
 	return e("Frame", {
-        Size = UDim2.fromScale(1, 1),
-        BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
 		ZIndex = 2, -- hardcode ZIndex here, hack
-        ref = frameRef,
-    }, {
-        HelpContent = helpContext.HelpMessage and e("Frame", {
-            Position = offset,
-            BackgroundTransparency = 1,
-        }, {
-            Content = helpContext.HelpMessage.Help,
-        }),
-    })
+		ref = frameRef,
+	}, {
+		HelpContent = helpContext.HelpMessage and e("Frame", {
+			Position = offset,
+			BackgroundTransparency = 1,
+		}, {
+			Content = helpContext.HelpMessage.Help,
+		}),
+	})
 end
 
 return HelpGui

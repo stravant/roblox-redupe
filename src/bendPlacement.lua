@@ -2,7 +2,6 @@ export type Placement = {
 	Position: CFrame,
 	BoundsOffset: Vector3,
 	Size: Vector3,
-	SizePadding: Vector3,
 	PreviousSize: Vector3,
 	Offset: CFrame,
 }
