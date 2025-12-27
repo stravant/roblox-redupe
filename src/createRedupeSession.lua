@@ -615,8 +615,13 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	end
 	session.Destroy = function()
 		if recordingInProgress then
+			local existingSelection = Selection:Get()
 			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
-			recordingInProgress = false
+			-- Finish recording may clobber the selection when using cancel mode, manually
+			-- preserve the selection we had. Cancelling may have removed something that
+			-- was selected but Set is tolerant of that.
+			Selection:Set(existingSelection)
+			recordingInProgress = nil
 		end
 		Roact.unmount(handle)
 		screenGui:Destroy()

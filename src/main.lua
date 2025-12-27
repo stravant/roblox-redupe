@@ -84,10 +84,24 @@ return function(plugin: Plugin)
 		end
 	end
 
+	local onSelectionChange
+
 	local function destroySession()
 		if session then
+			-- Need to disconnect selection changed so
+			-- that us restoring the selection after bad FinishRecording
+			-- behavior does not cause a new session to be created.
+			local mustRestoreSelectionChanged = false
+			if selectionChangedCn then
+				mustRestoreSelectionChanged = true
+				selectionChangedCn:Disconnect()
+				selectionChangedCn = nil
+			end
 			session.Destroy()
 			session = nil
+			if mustRestoreSelectionChanged then
+				selectionChangedCn = Selection.SelectionChanged:Connect(onSelectionChange)
+			end
 		end
 		if undoCn then
 			undoCn:Disconnect()
@@ -140,7 +154,7 @@ return function(plugin: Plugin)
 		return reactRoot ~= nil
 	end
 	
-	local function onSelectionChange()
+	function onSelectionChange()
 		if temporarilyIgnoreSelectionChanges then
 			return
 		end
