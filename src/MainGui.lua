@@ -8,7 +8,6 @@ local Plugin = script.Parent.Parent
 local Packages = Plugin.Packages
 
 local Settings = require(script.Parent.Settings)
-local createRedupeSession = require(script.Parent.createRedupeSession)
 local React = require(Packages.React)
 
 local HelpGui = require(script.Parent.HelpGui)
@@ -389,7 +388,7 @@ local function SpacingOrCountToggle(props: {
 			CornerRadius = UDim.new(0, 4),
 		}),
 		SpacingChip = e(ChipForToggle, {
-			Text = "Spacing",
+			Text = "Alignment",
 			IsCurrent = settings.UseSpacing,
 			LayoutOrder = 1,
 			OnClick = function()
@@ -414,7 +413,7 @@ local function InterpretValue(input: string): number?
 	if input:sub(1, 1) == "/" then
 		input = "360" .. input
 	end
-	local fragment, err = loadstring("return " .. input)
+	local fragment, _err = loadstring("return " .. input)
 	if fragment then
 		local success, result = pcall(fragment)
 		if success and typeof(result) == "number" then
@@ -670,7 +669,7 @@ local function CopiesPanel(props: {
 		}),
 		Padding = props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "Additional studs of padding to add between copies.",
+				HelpRichText = "Additional studs of padding to add between copies. May be negative if overlap is needed.",
 			}),
 			Subject = e(NumberInput, {
 				Label = "Extra Padding",
@@ -891,7 +890,7 @@ local function RotationPanel(props: {
 		}),
 		e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "Choose what pivot point the rotation uses, the one on the inside, middle, or outside of the curve.",
+				HelpRichText = "Choose what pivot point the rotation uses, the one on the inside, middle, or outside of the curve.\n• Outside tends to be the best for parts.\n• Middle tends to be the best for non-boxy models like trees.\n• Inside has use cases where Z-fighting must be avoided.",
 			}),
 			Subject = e(RotateModeToggle, {
 				CurrentSettings = props.CurrentSettings,
