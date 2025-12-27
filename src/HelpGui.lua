@@ -11,7 +11,7 @@ local e = React.createElement
 local BLACK = Color3.fromRGB(0, 0, 0)
 local WHITE = Color3.fromRGB(255, 255, 255)
 local DARK_RED = Color3.new(0.705882, 0, 0)
-local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
+local _ACTION_BLUE = Color3.fromRGB(0, 60, 255)
 
 export type HelpContext = {
 	HelpMessage: {
@@ -42,8 +42,7 @@ function HelpGui.Provider(props: {
 	UpdatedSettings: () -> (),
 	children: React.ReactElement<any, any>?,
 })
-	local initialHelpMessage: HelpMessageType? = nil
-	local helpMessage, setHelpMessage = React.useState(initialHelpMessage)
+	local helpMessage, setHelpMessage = React.useState(nil)
 
 	local contextValue = React.useMemo(function()
 		return {
@@ -56,7 +55,7 @@ function HelpGui.Provider(props: {
 					setHelpMessage({
 						Source = source,
 						Help = element,
-					})
+					} :: any) -- Can't type the useState correctly
 				end
 			end,
 			HaveHelp = props.CurrentSettings.HaveHelp,

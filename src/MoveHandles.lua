@@ -1,5 +1,3 @@
-local StarterPlayer = game:GetService("StarterPlayer")
-
 local Packages = script.Parent.Parent.Packages
 local Roact = require(Packages.Roact)
 local DraggerFramework = require(Packages.DraggerFramework)
@@ -103,7 +101,9 @@ function MoveHandles:_summonHandles()
 	if distance then
 		local hitPoint = mouseRay.Origin + mouseRay.Direction.Unit * distance
 		self._summonBasisOffset = CFrame.new(self._boundingBox.CFrame:PointToObjectSpace(hitPoint))
+		return true
 	end
+	return false
 end
 
 function MoveHandles:_endSummon()
@@ -390,7 +390,7 @@ function MoveHandles:_solveForAdjustedDistance(unadjustedDistance)
 end
 
 function MoveHandles:_getSnappedDelta(delta)
-	local snapPoints
+	-- local snapPoints
 	-- if self._implementation.getSnapPoints then
 	-- 	snapPoints = self._implementation:getSnapPoints()
 	-- end
@@ -421,45 +421,46 @@ function MoveHandles:_getSnappedDelta(delta)
 		end
 	end
 
-	if snapPoints then
-		-- We deliberately don't use self:_getBasisOffset() here, because we want to snap
-		-- the actual basis point of the selection to the snap points, not the position the
-		-- handles are visually at.
-		local basePoint = (self._draggingOriginalBoundingBoxCFrame * self._basisOffset).Position
-		local axis = self._axis
-		local maxDistanceAlongAxis = -math.huge
-		local minDistanceAlongAxis = math.huge
-		local closenessToDelta = math.huge
-		local bestDistanceAlongAxis = math.huge
-		for _, point in ipairs(snapPoints) do
-			local dist = (point.Position - basePoint):Dot(axis)
-			maxDistanceAlongAxis = math.max(maxDistanceAlongAxis, dist)
-			minDistanceAlongAxis = math.min(minDistanceAlongAxis, dist)
+	-- if snapPoints then
+	-- 	-- We deliberately don't use self:_getBasisOffset() here, because we want to snap
+	-- 	-- the actual basis point of the selection to the snap points, not the position the
+	-- 	-- handles are visually at.
+	-- 	local basePoint = (self._draggingOriginalBoundingBoxCFrame * self._basisOffset).Position
+	-- 	local axis = self._axis
+	-- 	local maxDistanceAlongAxis = -math.huge
+	-- 	local minDistanceAlongAxis = math.huge
+	-- 	local closenessToDelta = math.huge
+	-- 	local bestDistanceAlongAxis = math.huge
+	-- 	for _, point in ipairs(snapPoints) do
+	-- 		local dist = (point.Position - basePoint):Dot(axis)
+	-- 		maxDistanceAlongAxis = math.max(maxDistanceAlongAxis, dist)
+	-- 		minDistanceAlongAxis = math.min(minDistanceAlongAxis, dist)
 
-			local absDist = math.abs(dist - delta)
-			if absDist < closenessToDelta then
-				closenessToDelta = absDist
-				bestDistanceAlongAxis = dist
-			end
-		end
-		if delta > maxDistanceAlongAxis or delta < minDistanceAlongAxis then
-			-- Point is outside of the bounds of the snap points, use the grid
-			-- snap instead if it is closer than the snap point.
-			local gridSnappedDelta = snapWithBaseAdjustment(delta)
-			local closenessToGrid = math.abs(gridSnappedDelta - delta)
-			if closenessToDelta < closenessToGrid then
-				return bestDistanceAlongAxis
-			else
-				return gridSnappedDelta
-			end
-		else
-			-- Point is within the bounds of the snap points, use the distance
-			-- to the closest snap point.
-			return bestDistanceAlongAxis
-		end
-	else
-		return snapWithBaseAdjustment(delta)
-	end
+	-- 		local absDist = math.abs(dist - delta)
+	-- 		if absDist < closenessToDelta then
+	-- 			closenessToDelta = absDist
+	-- 			bestDistanceAlongAxis = dist
+	-- 		end
+	-- 	end
+	-- 	if delta > maxDistanceAlongAxis or delta < minDistanceAlongAxis then
+	-- 		-- Point is outside of the bounds of the snap points, use the grid
+	-- 		-- snap instead if it is closer than the snap point.
+	-- 		local gridSnappedDelta = snapWithBaseAdjustment(delta)
+	-- 		local closenessToGrid = math.abs(gridSnappedDelta - delta)
+	-- 		if closenessToDelta < closenessToGrid then
+	-- 			return bestDistanceAlongAxis
+	-- 		else
+	-- 			return gridSnappedDelta
+	-- 		end
+	-- 	else
+	-- 		-- Point is within the bounds of the snap points, use the distance
+	-- 		-- to the closest snap point.
+	-- 		return bestDistanceAlongAxis
+	-- 	end
+	-- else
+	-- 	return snapWithBaseAdjustment(delta)
+	-- end
+	return delta
 end
 
 function MoveHandles:mouseDrag(mouseRay)
