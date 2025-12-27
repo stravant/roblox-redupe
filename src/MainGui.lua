@@ -11,6 +11,7 @@ local Settings = require(script.Parent.Settings)
 local React = require(Packages.React)
 
 local HelpGui = require(script.Parent.HelpGui)
+local TutorialGui = require(script.Parent.TutorialGui)
 
 local e = React.createElement
 
@@ -1081,34 +1082,6 @@ local function SessionTopInfoRow(props: {
 	})
 end
 
-local function TutorialHeader(props: {
-	LayoutOrder: number?,
-	ClickedDone: () -> (),
-})
-	local ref = React.createRef()
-	return e("Frame", {
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		LayoutOrder = props.LayoutOrder,
-		BackgroundTransparency = 1
-	}, {
-		Padding = e("UIPadding", {
-			PaddingLeft = UDim.new(0, 6),
-			PaddingRight = UDim.new(0, 6),
-			PaddingBottom = UDim.new(0, 4),
-		}),
-		AnimatedLabel = e("ImageLabel", {
-			BackgroundColor3 = Color3.new(1, 0, 0),
-			Size = UDim2.new(1, 0, 0, 100),
-			BorderSizePixel = 0,
-			ImageContent = Content.none,
-			ref = ref,
-		}, {
-
-		}),
-	})
-end
-
 local function createBeginDragFunction(settings: Settings.RedupeSettings, updatedSettings: () -> ())
 	return function(instance, x, y)
 		local startMouseLocation = UserInputService:GetMouseLocation()
@@ -1136,9 +1109,6 @@ local function SessionView(props: {
 	HandleAction: (string) -> (),
 })
 	local beginDrag = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
-
-	local showTutorial = not props.CurrentSettings.DoneTutorial and props.CurrentSettings.HaveHelp
-
 	local nextOrder = createNextOrder()
 	return e("ImageButton", {
 		Image = "",
@@ -1158,13 +1128,6 @@ local function SessionView(props: {
 		TopInfoRow = e(SessionTopInfoRow, {
 			LayoutOrder = nextOrder(),
 			ShowHelpToggle = true,
-		}),
-		TutorialHeader = showTutorial and e(TutorialHeader, {
-			LayoutOrder = nextOrder(),
-			ClickedDone = function()
-				props.CurrentSettings.DoneTutorial = true
-				props.UpdatedSettings()
-			end,
 		}),
 		OperationPanel = e(OperationPanel, {
 			GroupAs = props.CurrentSettings.GroupAs,
@@ -1246,6 +1209,11 @@ local function MainGui(props: {
 	HandleAction: (string) -> (),
 })
 	local settings = props.CurrentSettings
+
+	-- Ugly hack, need to make a special layer for the Tutorial to not interrupt
+	-- automatic sizing of the main SessionView
+	local showTutorial = not props.CurrentSettings.DoneTutorial and props.CurrentSettings.HaveHelp
+
 	return e(HelpGui.Provider, {
 		CurrentSettings = props.CurrentSettings,
 		UpdatedSettings = props.UpdatedSettings,
@@ -1266,6 +1234,12 @@ local function MainGui(props: {
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
 				}),
+			ActualTutorialGui = showTutorial and e(TutorialGui, {
+				ClickedDone = function()
+					props.CurrentSettings.DoneTutorial = true
+					props.UpdatedSettings()
+				end,
+			}),
 			HelpDisplay = e(HelpGui.HelpDisplay),
 		}),
 	})
