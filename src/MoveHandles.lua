@@ -460,7 +460,7 @@ function MoveHandles:_getSnappedDelta(delta)
 	-- else
 	-- 	return snapWithBaseAdjustment(delta)
 	-- end
-	return delta
+	return snapWithBaseAdjustment(delta)
 end
 
 function MoveHandles:mouseDrag(mouseRay)
