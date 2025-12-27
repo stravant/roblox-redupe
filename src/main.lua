@@ -17,6 +17,10 @@ local function getFilteredSelection(): { Instance }
 	local selection = Selection:Get()
 	local filtered = {}
 	for _, item in selection do
+		-- Don't try to duplicate services
+		if item.Parent == game then
+			continue
+		end
 		if item:IsA("BasePart") or item:IsA("Model") or
 			item:FindFirstChildWhichIsA("BasePart", true) or
 			item:FindFirstChildWhichIsA("Model", true) then
