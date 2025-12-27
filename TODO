@@ -5,6 +5,7 @@ Priority
 * Figure out how to allow resizing smaller than something started
 
 Other
+* When bent, avoid placing redundant copies exactly over other copies
 * Make the panel anchor to the nearest window edge
 * Make move handles look more distinct?
 * Tutorial header
