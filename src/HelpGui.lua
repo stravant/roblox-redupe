@@ -182,7 +182,7 @@ function HelpGui.HelpDisplay(props: {
 	-- Find offset if there's a message to display
 	local offset = UDim2.new(X_PLACEMENT, 0, 0, 0)
 	if frameRef.current and helpContext.HelpMessage then
-		assert(typeof(helpContext.HelpMessage.Source) == "GuiObject")
+		assert(helpContext.HelpMessage.Source:IsA("GuiObject"))
 		local offsetY = helpContext.HelpMessage.Source.AbsolutePosition.Y - frameRef.current.AbsolutePosition.Y
 		offset = UDim2.new(X_PLACEMENT, 0, 0, offsetY)
 	end
