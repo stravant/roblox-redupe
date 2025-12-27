@@ -159,6 +159,14 @@ return function(plugin: Plugin)
 		updateUI()
 	end
 
+	local function doReset()
+		activeSettings.Rotation = CFrame.new() -- Need to reset rotation here
+		if not uiPresent() then
+			createUI()
+		end
+		tryCreateSession()
+	end
+
 	function handleAction(action: string)
 		-- Ignore selection changes until we're done changing the selection
 		-- to the newly created objects.
@@ -173,6 +181,8 @@ return function(plugin: Plugin)
 			assert(session)
 			session.Commit(true)
 			closeRequested()
+		elseif action == "reset" then
+			doReset()
 		end
 		task.defer(function()
 			temporarilyIgnoreSelectionChanges = false
@@ -190,12 +200,8 @@ return function(plugin: Plugin)
 			-- If the plugin is not open, open it and try to begin a session.
 			-- If there is no selection the user will see a UI telling them
 			-- to select something.
-			activeSettings.Rotation = CFrame.new() -- Need to reset rotation here
 			button:SetActive(true)
-			if not uiPresent() then
-				createUI()
-			end
-			tryCreateSession()
+			doReset()
 		end
 	end)
 

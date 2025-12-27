@@ -573,7 +573,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			else
 				local container = Instance.new(currentSettings.GroupAs)
 				if currentSettings.GroupAs == "Model" then
-					assert(typeof(container) == "Model")
+					assert(container:IsA("Model"))
 					if target:IsA("PVInstance") then
 						container.WorldPivot = target:GetPivot()
 					else

@@ -218,7 +218,7 @@ local function OperationPanel(props: {
 				BackgroundTransparency = 1,
 			}, {
 				Flex = e("UIFlexItem", {
-					GrowRatio = 3,
+					GrowRatio = 5,
 					FlexMode = Enum.UIFlexMode.Custom,
 				}),
 				ListLayout = e("UIListLayout", {
@@ -264,17 +264,32 @@ local function OperationPanel(props: {
 				BackgroundTransparency = 1,
 			}, {
 				Flex = e("UIFlexItem", {
-					GrowRatio = 1,
+					GrowRatio = 2,
 					FlexMode = Enum.UIFlexMode.Custom,
+				}),
+				ListLayout = e("UIListLayout", {
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 4),
 				}),
 				CancelButton = e(OperationButton, {
 					Text = "EXIT",
 					Color = DARK_RED,
 					Disabled = false,
-					Height = 72,
+					Height = 34,
 					OnClick = function()
 						props.HandleAction("cancel")
 					end,
+					LayoutOrder = 1,
+				}),
+				ResetButton = e(OperationButton, {
+					Text = "RESET",
+					Color = DARK_RED,
+					Disabled = not props.CanPlace,
+					Height = 34,
+					OnClick = function()
+						props.HandleAction("reset")
+					end,
+					LayoutOrder = 2,
 				}),
 			}),
 		}),
