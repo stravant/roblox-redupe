@@ -2,7 +2,7 @@
 
 export type GhostPreview = {
 	hide: () -> (),
-	create: (isPreview: boolean, positionOffset: Vector3, sizeOffset: Vector3) -> { Instance },
+	create: (isPreview: boolean, positionOffset: CFrame, sizeOffset: Vector3) -> { Instance },
 	trim: () -> (),
 }
 
@@ -10,7 +10,7 @@ type PoolItem = {
 	instances: { Instance },
 }
 
-local GHOST_TRANSPARENCY = 0.3
+local GHOST_TRANSPARENCY = 0.5
 
 local function cloneTargets(targets: { Instance }): { Instance }
 	local clones: { Instance } = {}
@@ -33,6 +33,7 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 	local function getItem(isPreview: boolean): PoolItem
 		if isPreview and #pool > 0 then
 			local existingItem = table.remove(pool)
+			assert(existingItem, "Pool was not empty")
 			-- Not cloned targets here because we want the
 			-- original parent to parent to.
 			for i, target in targets do
@@ -103,12 +104,12 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 			itemModel:ScaleTo(target:GetScale() * scale)
 			return true
 		elseif target:IsA("BasePart") then
-			local scale = targetSize / size
+			local partScale = targetSize / size
 			local itemPart = item :: BasePart
 			local targetPart = target :: BasePart
 			local offsetFromBase = cframe:ToObjectSpace(targetPart:GetPivot())
 			itemPart:PivotTo(targetCFrame * offsetFromBase)
-			itemPart.Size = scale * targetPart.Size
+			itemPart.Size = partScale * targetPart.Size
 			return true
 		else
 			return false
