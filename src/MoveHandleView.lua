@@ -24,7 +24,8 @@ local SCREENSPACE_HANDLE_SIZE = 6
 local HANDLE_DIM_TRANSPARENCY = 0.45
 local HANDLE_THIN_BY_FRAC = 0.34
 local HANDLE_THICK_BY_FRAC = 1.5
-local DUPLICATE_SIZE = Vector3.new(0.9, 0.9, 0.2)
+local DUPLICATE_SIZE = Vector3.new(0.9, 0.9, 0.15)
+local DUPLICATE_SIZE_ADJUST = Vector3.new(0.1, 0.1, 0)
 local DUPLICATE_OFFSET_AMOUNT = 0.4
 
 function MoveHandleView:init()
@@ -76,11 +77,12 @@ function MoveHandleView:render()
 				for i = 0, 2 do
 					children["Head"..i] = Roact.createElement("BoxHandleAdornment", {
 						Adornee = Workspace.Terrain,
-						ZIndex = 1,
-						Size = DUPLICATE_SIZE * scale,
+						ZIndex = 2,
+						Size = (DUPLICATE_SIZE - DUPLICATE_SIZE_ADJUST * i) * scale,
 						CFrame = coneAtCFrame * CFrame.new(0, 0, -i * scale * DUPLICATE_OFFSET_AMOUNT),
 						Color3 = self.props.Color,
 						AlwaysOnTop = false,
+						Transparency = 0.6,
 						AdornCullingMode = CULLING_MODE,
 					})
 				end
@@ -113,14 +115,14 @@ function MoveHandleView:render()
 	if not self.props.Thin then
 		if doubleHandle then
 			for i = 0, 2 do
-				children["Head"..i] = Roact.createElement("BoxHandleAdornment", {
+				children["HeadOnTop"..i] = Roact.createElement("BoxHandleAdornment", {
 					Adornee = Workspace.Terrain,
 					ZIndex = 0,
-					Size = DUPLICATE_SIZE * scale,
+					Size = (DUPLICATE_SIZE - DUPLICATE_SIZE_ADJUST * i) * scale,
 					CFrame = coneAtCFrame * CFrame.new(0, 0, -i * scale * DUPLICATE_OFFSET_AMOUNT),
 					Color3 = self.props.Color,
 					AlwaysOnTop = true,
-					Transparency = self.props.Hovered and 0.0 or HANDLE_DIM_TRANSPARENCY,
+					Transparency = self.props.Hovered and 0.0 or 0.5,
 					AdornCullingMode = CULLING_MODE,
 				})
 			end

@@ -1,81 +1,57 @@
-local DEVELOPMENT = false
+-- Use the toolbar combiner?
+local COMBINE_TOOLBAR = false
 
--- When not in development, just directly run the plugin
-if not DEVELOPMENT then
-	require(script.Parent.Src.main)(plugin)
-	return
-end
-
--- Otherwise, mock the plugin to allow reloading...
-
-local CoreGui = game:GetService("CoreGui")
-
+local createSharedToolbar = require(script.Parent.Packages.createSharedToolbar)
 local Signal = require(script.Parent.Packages.Signal)
 
-local function getHolder(str): ObjectValue
-	local ident = "Holder" .. str
-	local holder = CoreGui:FindFirstChild(ident)
-	if not holder then
-		holder = Instance.new("ObjectValue")
-		holder.Name = ident
-		holder.Parent = CoreGui
+local RIBBON_ICON = "rbxassetid://98256996626224"
+local TOOLTIP = "Activate Redupe plugin, opening the settings panel and activating the duplication dragger."
+
+local setButtonActive: (active: boolean) -> () = nil
+local buttonClicked = Signal.new()
+
+if COMBINE_TOOLBAR then
+	local toolbarSettings: createSharedToolbar.SharedToolbarSettings = {
+		ButtonName = "Redupe",
+		ButtonTooltip = TOOLTIP,
+		ButtonIcon = RIBBON_ICON,
+		ToolbarName = "GeomTools",
+		CombinerName = "GeomToolsToolbar",
+		ClickedFn = function()
+			buttonClicked:Fire()
+		end,
+	}
+	createSharedToolbar(plugin, toolbarSettings)
+	function setButtonActive(active: boolean)
+		assert(toolbarSettings.Button):SetActive(active)
 	end
-	return holder
-end
-
-local function getToolbar(name: string): PluginToolbar
-	local toolbarHolder = getHolder(name)
-	if not toolbarHolder.Value then
-		toolbarHolder.Value = plugin:CreateToolbar(name)
+else
+	local toolbar = plugin:CreateToolbar("Redupe")
+	local button = toolbar:CreateButton("openRedupe", TOOLTIP, RIBBON_ICON, "Redupe")
+	local clickCn = button.Click:Connect(function()
+		buttonClicked:Fire()
+	end)
+	function setButtonActive(active: boolean)
+		button:SetActive(active)
 	end
-	return toolbarHolder.Value
+	plugin.Unloading:Connect(function()
+		clickCn:Disconnect()
+	end)
 end
 
-local function makeMockToolbar(toolbarName)
-	local mockToolbar = setmetatable({
-		_instance = getToolbar(toolbarName),
-		CreateButton = function(self, id, tooltip, icon, text)
-			local buttonHolder = getHolder(toolbarName .. id)
-			if not buttonHolder.Value then
-				local button = self._instance:CreateButton(id, tooltip, icon, text)
-				buttonHolder.Value = button
-			end
-			return buttonHolder.Value
-		end,
-	}, {
-		__index = function(self, key)
-			return self._instance[key]
-		end,
-		__newindex = function(self, key, value)
-			self._instance[key] = value
-		end,
-	})
-	return mockToolbar
-end
+-- Lazy load the main plugin on first click
+local loaded = false
+local clickedCn = buttonClicked:Connect(function()
+	if not loaded then
+		loaded = true
+		require(script.Parent.Src.main)(plugin, buttonClicked, setButtonActive)
+		-- Refire event now that the plugin is listening
+		buttonClicked:Fire()
+	end
+end)
+plugin.Deactivation:Connect(function()
+	clickedCn:Disconnect()
+end)
 
-local MockPlugin = setmetatable({
-	_instance = plugin,
-	Unloading = Signal.new(),
-	CreateToolbar = function(self, name)
-		return makeMockToolbar(name)
-	end,
-	GetMouse = function(self)
-		return plugin:GetMouse()
-	end,
-}, {
-	__index = function(self, key)
-		local value = plugin[key]
-		if typeof(value) == "function" then
-			return function(mockSelf, ...)
-				return value(plugin, ...)
-			end
-		else
-			return value
-		end
-	end,
-	__newindex = function(self, key, value)
-		plugin[key] = value
-	end,
-})
 
-require(script.Parent.Src.main)(MockPlugin)
+

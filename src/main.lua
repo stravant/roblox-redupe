@@ -12,6 +12,7 @@ local Settings = require(script.Parent.Settings)
 local MainGui = require(script.Parent.MainGui)
 local React = require(Packages.React)
 local ReactRoblox = require(Packages.ReactRoblox)
+local Signal = require(Packages.Signal)
 
 local function getFilteredSelection(): { Instance }
 	local selection = Selection:Get()
@@ -31,10 +32,7 @@ local function getFilteredSelection(): { Instance }
 	return filtered
 end
 
-return function(plugin: Plugin)
-	local toolbar = plugin:CreateToolbar("Redupe")
-	local button = toolbar:CreateButton("openRedupe", "Open Redupe", NEW_RIBBON_ICON, "Redupe")
-
+return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive: (active: boolean) -> ())
 	-- The current session
 	local session: createRedupeSession.RedupeSession? = nil
 
@@ -51,7 +49,7 @@ return function(plugin: Plugin)
 	local temporarilyIgnoreSelectionChanges = false
 
 	local function destroyUI()
-		button:SetActive(false)
+		setButtonActive(false)
 		if selectionChangedCn then
 			selectionChangedCn:Disconnect()
 			selectionChangedCn = nil
@@ -208,18 +206,18 @@ return function(plugin: Plugin)
 		end)
 	end
 
-	button.Click:Connect(function()
+	local clickedCn = buttonClicked:Connect(function()
 		-- If the plugin is already open but nothing is selected treat the
 		-- button press as closing the panel.
 		if uiPresent() and (#getFilteredSelection() == 0) then
-			button:SetActive(false)
+			setButtonActive(false)
 			destroyUI()
 			destroySession()
 		else
 			-- If the plugin is not open, open it and try to begin a session.
 			-- If there is no selection the user will see a UI telling them
 			-- to select something.
-			button:SetActive(true)
+			setButtonActive(true)
 			doReset()
 		end
 	end)
@@ -238,6 +236,7 @@ return function(plugin: Plugin)
 		destroySession()
 		destroyUI()
 		Settings.Save(plugin, activeSettings)
+		clickedCn:Disconnect()
 		assert(selectionChangedCn == nil)
 		assert(undoCn == nil)
 	end)
