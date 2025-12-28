@@ -1,6 +1,5 @@
 
 local Workspace = game:GetService("Workspace")
-local CoreGui = game:GetService("CoreGui")
 
 local Packages = script.Parent.Parent.Packages
 local Roact = require(Packages.Roact)
@@ -25,7 +24,8 @@ local SCREENSPACE_HANDLE_SIZE = 6
 local HANDLE_DIM_TRANSPARENCY = 0.45
 local HANDLE_THIN_BY_FRAC = 0.34
 local HANDLE_THICK_BY_FRAC = 1.5
-local DOUBLE_EXTRA_RADIUS = 1.3
+local DUPLICATE_SIZE = Vector3.new(0.9, 0.9, 0.2)
+local DUPLICATE_OFFSET_AMOUNT = 0.4
 
 function MoveHandleView:init()
 end
@@ -44,7 +44,6 @@ function MoveHandleView:render()
 		offset = offset + length * (self.props.Outset or 0)
 	end
 	offset += self.props.FixedOutset
-	local tipOffset = scale * BASE_TIP_OFFSET
 	local tipLength = length * BASE_TIP_LENGTH
 	if self.props.Thin then
 		radius = radius * HANDLE_THIN_BY_FRAC
@@ -56,8 +55,9 @@ function MoveHandleView:render()
 
 	local coneAtCFrame = self.props.Axis * CFrame.new(0, 0, -(offset + length))
 	local cone2AtCFrame = coneAtCFrame * CFrame.new(0, 0, 0.5 * scale)
-	local tipAt = coneAtCFrame * Vector3.new(0, 0, -tipOffset)
-	local tipAtScreen, _ = Workspace.CurrentCamera:WorldToScreenPoint(tipAt)
+
+	coneAtCFrame *= CFrame.new(0, 0, scale * 0.3)
+	length -= scale * 0.3
 
 	local children = {}
 	if not self.props.Hovered then
@@ -72,18 +72,20 @@ function MoveHandleView:render()
 			AdornCullingMode = CULLING_MODE,
 		})
 		if not self.props.Thin then
-			children.Head = Roact.createElement("ConeHandleAdornment", {
-				Adornee = Workspace.Terrain,
-				ZIndex = 0,
-				Radius = TIP_RADIUS_MULTIPLIER * radius * (if doubleHandle then DOUBLE_EXTRA_RADIUS else 1),
-				Height = tipLength,
-				CFrame = coneAtCFrame,
-				Color3 = self.props.Color,
-				AlwaysOnTop = false,
-				AdornCullingMode = CULLING_MODE,
-			})
 			if doubleHandle then
-				children.HeadDupe = Roact.createElement("ConeHandleAdornment", {
+				for i = 0, 2 do
+					children["Head"..i] = Roact.createElement("BoxHandleAdornment", {
+						Adornee = Workspace.Terrain,
+						ZIndex = 1,
+						Size = DUPLICATE_SIZE * scale,
+						CFrame = coneAtCFrame * CFrame.new(0, 0, -i * scale * DUPLICATE_OFFSET_AMOUNT),
+						Color3 = self.props.Color,
+						AlwaysOnTop = false,
+						AdornCullingMode = CULLING_MODE,
+					})
+				end
+			else
+				children.Head = Roact.createElement("ConeHandleAdornment", {
 					Adornee = Workspace.Terrain,
 					ZIndex = 0,
 					Radius = TIP_RADIUS_MULTIPLIER * radius,
@@ -97,61 +99,46 @@ function MoveHandleView:render()
 		end
 	end
 
-	if self.props.AlwaysOnTop then
-		children.DimmedShaft = Roact.createElement("CylinderHandleAdornment", {
-			Adornee = Workspace.Terrain, -- Just a neutral anchor point
-			ZIndex = 0,
-			Radius = radius,
-			Height = length,
-			CFrame = self.props.Axis * CFrame.new(0, 0, -(offset + length * 0.5)),
-			Color3 = self.props.Color,
-			AlwaysOnTop = true,
-			Transparency = self.props.Hovered and 0.0 or HANDLE_DIM_TRANSPARENCY,
-			AdornCullingMode = CULLING_MODE,
-		})
-		if not self.props.Thin then
-			children.DimmedHead = Roact.createElement("ConeHandleAdornment", {
-				Adornee = Workspace.Terrain,
-				ZIndex = 0,
-				Radius = TIP_RADIUS_MULTIPLIER * radius * (if doubleHandle then DOUBLE_EXTRA_RADIUS else 1),
-				Height = tipLength,
-				CFrame = coneAtCFrame,
-				Color3 = self.props.Color,
-				AlwaysOnTop = true,
-				Transparency = self.props.Hovered and 0.0 or HANDLE_DIM_TRANSPARENCY,
-				AdornCullingMode = CULLING_MODE,
-			})
-			if doubleHandle then
-				children.DimmedHeadDupe = Roact.createElement("ConeHandleAdornment", {
+	children.DimmedShaft = Roact.createElement("CylinderHandleAdornment", {
+		Adornee = Workspace.Terrain, -- Just a neutral anchor point
+		ZIndex = 0,
+		Radius = radius,
+		Height = length,
+		CFrame = self.props.Axis * CFrame.new(0, 0, -(offset + length * 0.5)),
+		Color3 = self.props.Color,
+		AlwaysOnTop = true,
+		Transparency = self.props.Hovered and 0.0 or HANDLE_DIM_TRANSPARENCY,
+		AdornCullingMode = CULLING_MODE,
+	})
+	if not self.props.Thin then
+		if doubleHandle then
+			for i = 0, 2 do
+				children["Head"..i] = Roact.createElement("BoxHandleAdornment", {
 					Adornee = Workspace.Terrain,
 					ZIndex = 0,
-					Radius = TIP_RADIUS_MULTIPLIER * radius,
-					Height = tipLength,
-					CFrame = cone2AtCFrame,
+					Size = DUPLICATE_SIZE * scale,
+					CFrame = coneAtCFrame * CFrame.new(0, 0, -i * scale * DUPLICATE_OFFSET_AMOUNT),
 					Color3 = self.props.Color,
 					AlwaysOnTop = true,
 					Transparency = self.props.Hovered and 0.0 or HANDLE_DIM_TRANSPARENCY,
 					AdornCullingMode = CULLING_MODE,
 				})
 			end
-		end
-	elseif not self.props.Thin then
-		local halfHandleSize = 0.5 * SCREENSPACE_HANDLE_SIZE
-
-		children.ScreenBox = Roact.createElement(Roact.Portal, {
-			target = CoreGui,
-		}, {
-			MoveToolScreenspaceHandle = Roact.createElement("ScreenGui", {}, {
-				Frame = Roact.createElement("Frame", {
-					BorderSizePixel = 0,
-					BackgroundColor3 = self.props.Color,
-					Position = UDim2.new(0, tipAtScreen.X - halfHandleSize, 0, tipAtScreen.Y - halfHandleSize),
-					Size = UDim2.new(0, SCREENSPACE_HANDLE_SIZE, 0, SCREENSPACE_HANDLE_SIZE),
-					AdornCullingMode = CULLING_MODE,
-				})
+		else
+			children.Head = Roact.createElement("ConeHandleAdornment", {
+				Adornee = Workspace.Terrain,
+				ZIndex = 0,
+				Radius = TIP_RADIUS_MULTIPLIER * radius,
+				Height = tipLength,
+				CFrame = cone2AtCFrame,
+				Color3 = self.props.Color,
+				AlwaysOnTop = true,
+				Transparency = self.props.Hovered and 0.0 or HANDLE_DIM_TRANSPARENCY,
+				AdornCullingMode = CULLING_MODE,
 			})
-		})
+		end
 	end
+
 	return Roact.createElement("Folder", {}, children)
 end
 

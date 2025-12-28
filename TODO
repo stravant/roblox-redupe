@@ -2,8 +2,8 @@ Priority
 * Visual description of multiply snap by count
 * Somehow support extrude
 * Line up the pixels correctly
+* Exclude terrain from selectable stuff
 
 Other
 * When bent, avoid placing redundant copies exactly over other copies
-* Make move handles look more distinct?
 * Make UI dockable as a panel (I do want this).
