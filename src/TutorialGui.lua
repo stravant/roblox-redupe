@@ -249,17 +249,49 @@ local function runTutorial(image: ImageLabel)
 	cursor.ImageContent = Content.none
 	cursor.Size = UDim2.fromOffset(32, 32)
 	cursor.Parent = image
-	
-	--local activeTween = nil
+
+	-- Gather assetIds to preload
+	local assetIdsToPreload: { [number]: boolean } = {}
+	for _, tutorialFrame in TUTORIAL_FRAMES do
+		assetIdsToPreload[tutorialFrame.Image] = true
+		assetIdsToPreload[tutorialFrame.Cursor.Image] = true
+		if tutorialFrame.Patch then
+			assetIdsToPreload[tutorialFrame.Patch.Image] = true
+		end
+	end
+	local hiddenFrames = {} :: { [number]: ImageLabel }
+	for assetId, _ in assetIdsToPreload do
+		local hiddenFrame = Instance.new("ImageLabel")
+		hiddenFrame.BackgroundTransparency = 1
+		hiddenFrame.ImageTransparency = 0.99
+		hiddenFrame.ImageContent = Content.fromAssetId(assetId)
+		hiddenFrame.Size = UDim2.fromOffset(1, 1)
+		hiddenFrame.Visible = true
+		hiddenFrame.Parent = image
+		hiddenFrames[assetId] = hiddenFrame
+	end
+
+	local function getAssetIdsForFrame(tutorialFrame: TutorialFrame): { number }
+		local ids = { tutorialFrame.Image, tutorialFrame.Cursor.Image }
+		if tutorialFrame.Patch then
+			table.insert(ids, tutorialFrame.Patch.Image)
+		end
+		return ids
+	end
+
 	task.spawn(function()
 		local frame = 1
-		--local currentCursorPosition = Vector2.new(0, 0)
 		while not ended do
 			if frame == 1 then
 				-- Reset cursor position
 				cursor.Position = UDim2.fromOffset(0, 0)
 			end
 			local tutorialFrame = TUTORIAL_FRAMES[frame]
+			for _, assetId in getAssetIdsForFrame(tutorialFrame) do
+				while not hiddenFrames[assetId].IsLoaded do
+					task.wait()
+				end
+			end
 			populateFrame(tutorialFrame, image, patchFrame)
 			cursor.ImageContent = Content.fromAssetId(tutorialFrame.Cursor.Image)
 			cursor.AnchorPoint = Vector2.new(
@@ -283,6 +315,9 @@ local function runTutorial(image: ImageLabel)
 	return function()
 		cursor:Destroy()
 		patchFrame:Destroy()
+		for _, hiddenFrame in hiddenFrames do
+			hiddenFrame:Destroy()
+		end
 		ended = true
 	end
 end
@@ -304,8 +339,11 @@ local function TutorialGui(props: {
 	return e("ImageButton", {
 		Size = UDim2.fromOffset(228, 100),
 		Position = UDim2.fromOffset(255, 5),
+		BackgroundColor3 = Color3.new(0.372549, 0.372549, 0.372549),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
 		LayoutOrder = props.LayoutOrder,
-		BackgroundTransparency = 1,
+		BackgroundTransparency = 0,
 		ZIndex = 2, -- on top of the SessionView in the MainGui
 	}, {
 		Stroke = e("UIStroke", {
@@ -316,10 +354,10 @@ local function TutorialGui(props: {
 			CornerRadius = UDim.new(0, 6),
 		}),
 		AnimatedLabel = e("ImageLabel", {
-			BackgroundColor3 = Color3.new(1, 0, 0),
+			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(228, 100),
-			BorderSizePixel = 0,
 			ImageContent = Content.none,
+			ZIndex = 2,
 			ref = ref,
 		}, {
 			Corner = e("UICorner", {
@@ -336,7 +374,7 @@ local function TutorialGui(props: {
 			TextYAlignment = Enum.TextYAlignment.Top,
 			Font = Enum.Font.SourceSansBold,
 			TextSize = 20,
-			ZIndex = 2,
+			ZIndex = 3,
 		}, {
 			Stroke = e("UIStroke", {
 				Color = Color3.fromRGB(0, 0, 0),
@@ -353,7 +391,7 @@ local function TutorialGui(props: {
 			TextColor3 = Color3.new(1, 1, 1),
 			Font = Enum.Font.SourceSansBold,
 			TextSize = 20,
-			ZIndex = 2,
+			ZIndex = 4,
 			AutoButtonColor = true,
 			[React.Event.Activated] = function()
 				props.ClickedDone()
