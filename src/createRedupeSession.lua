@@ -25,6 +25,8 @@ local RotateHandles = require("./RotateHandles")
 
 local ROTATE_GRANULARITY_MULTIPLIER = 2
 
+local CREATION_THROTTLE_TIME = 0.3
+
 local function createCFrameDraggerSchema(getBoundingBoxFromContextFunc)
 	local schema = table.clone(DraggerSchemaCore)
 	schema.getMouseTarget = function()
@@ -424,6 +426,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			return
 		end
 
+		local startTime = os.clock()
+		local cutoffTime = startTime + CREATION_THROTTLE_TIME
+
 		local endOffset = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
 		local placements = {}
 		for i = 1, copyCount - 1 do
@@ -438,6 +443,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				Offset = CFrame.new(),
 				PreviousSize = Vector3.new(),
 			})
+
+			if os.clock() > cutoffTime then
+				warn("Redupe: Too many copies being created, operation aborted to prevent hang.")
+				return
+			end
 		end
 
 		-- Convert positions to offsets and apply bending
@@ -460,6 +470,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		for _, placement in placements do
 			runningPosition *= placement.Offset
 			table.insert(results, ghostPreview.create(not done, runningPosition, placement.Size))
+		
+			if os.clock() > cutoffTime then
+				warn("Redupe: Too many copies being created, operation aborted to prevent hang.")
+				ghostPreview.trim()
+				return
+			end
 		end
 
 		ghostPreview.trim()
