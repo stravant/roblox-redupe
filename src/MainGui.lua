@@ -624,7 +624,7 @@ local function CopiesPanel(props: {
 	}, {
 		SpacingOrCount = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "Choose whether to evenly space a fixed number of copies or place as many copies as the space allows.",
+				HelpRichText = "Choose whether to place as many back-to-back copies as space allows or evenly distribute a fixed number of copies.",
 			}),
 			Subject = e(SpacingOrCountToggle, {
 				CurrentSettings = props.CurrentSettings,
@@ -670,7 +670,9 @@ local function CopiesPanel(props: {
 		}),
 		Padding = props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "Additional studs of padding to add between copies. May be negative if overlap is needed.",
+				HelpRichText =
+					"Additional studs of padding to add between copies." ..
+					"\n• May be negative if overlap is needed.",
 			}),
 			Subject = e(NumberInput, {
 				Label = "Extra Padding",
@@ -686,7 +688,9 @@ local function CopiesPanel(props: {
 		}),
 		MultiplySnapByCount = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "When enabled, the snap will apply to each copy, keeping each copy aligned to your chosen grid.\nWhen disabled, the snap will apply to the end position only.",
+				HelpRichText = 
+					"When enabled, your grid snap will be multiplied by the copy count, so that during a resize each copy individually stays grid aligned rather than only the endpoint staying grid aligned." ..
+					"\n• Disable if you need more precise positioning of the final copy.",
 			}),
 			Subject = e(Checkbox, {
 				Label = "Multiply Snap By Count",
@@ -1082,10 +1086,60 @@ local function SessionTopInfoRow(props: {
 	})
 end
 
+local function getViewSize(): Vector2
+	local camera = workspace.CurrentCamera
+	if camera then
+		return camera.ViewportSize
+	else
+		return Vector2.new(800, 600)
+	end
+end
+
+-- Determines which edge to make the position relative to
+local function updateWindowPosition(settings: Settings.RedupeSettings, size: Vector2, newPositionScreenSpace: Vector2)
+	local viewSize = getViewSize()
+	local center = newPositionScreenSpace + size / 2
+	local centerFraction = center / viewSize
+	local computedAnchor = Vector2.new(math.round(centerFraction.X), math.round(centerFraction.Y))
+	local cornerOfWindow = newPositionScreenSpace + size * computedAnchor
+	local cornerOfScreen = viewSize * computedAnchor
+	settings.WindowPosition = cornerOfWindow - cornerOfScreen
+	settings.WindowAnchor = computedAnchor
+end
+
+local function getMainWindow(context: Instance): Instance?
+	local check: Instance? = context
+	while check do
+		if check:HasTag("MainWindow") then
+			return check
+		end
+		check = check.Parent
+	end
+	return nil
+end
+
+local function getMainWindowSize(context: Instance): Vector2
+	local mainWindow = getMainWindow(context)
+	if mainWindow and mainWindow:IsA("GuiObject") then
+		return Vector2.new(mainWindow.AbsoluteSize.X, mainWindow.AbsoluteSize.Y)
+	else
+		warn("Something weird happened, missing main window")
+		return Vector2.new(240, 400)
+	end
+end
+
 local function createBeginDragFunction(settings: Settings.RedupeSettings, updatedSettings: () -> ())
 	return function(instance, x, y)
 		local startMouseLocation = UserInputService:GetMouseLocation()
-		local startWindowPosition = settings.WindowPosition
+		local viewSize = getViewSize()
+		local windowSize = getMainWindowSize(instance)
+
+		-- In screen space
+		local startWindowPositionScreenSpace =
+			settings.WindowAnchor * viewSize
+			+ settings.WindowPosition
+			- windowSize * settings.WindowAnchor
+
 		task.spawn(function()
 			local previousDelta = Vector2.new()
 			while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
@@ -1093,7 +1147,9 @@ local function createBeginDragFunction(settings: Settings.RedupeSettings, update
 				local delta = newMouseLocation - startMouseLocation
 				if delta ~= previousDelta then
 					previousDelta = delta
-					settings.WindowPosition = startWindowPosition + delta
+					local newPositionScreenSpace = startWindowPositionScreenSpace + delta
+
+					updateWindowPosition(settings, windowSize, newPositionScreenSpace)
 					updatedSettings()
 				end
 				task.wait()
@@ -1220,8 +1276,13 @@ local function MainGui(props: {
 	}, {
 		e("Frame", {
 			Size = UDim2.fromOffset(240, 0),
-			Position = UDim2.fromOffset(settings.WindowPosition.X, settings.WindowPosition.Y),
+			Position = UDim2.new(
+				settings.WindowAnchor.X, settings.WindowPosition.X,
+				settings.WindowAnchor.Y, settings.WindowPosition.Y),
+			AnchorPoint = settings.WindowAnchor,
+			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
+			[React.Tag] = "MainWindow",
 		}, {
 			Content = if props.HasSession
 				then e(SessionView, {

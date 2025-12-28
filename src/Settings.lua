@@ -3,6 +3,7 @@ local kSettingsKey = "redupeState"
 
 export type RedupeSettings = {
 	WindowPosition: Vector2,
+	WindowAnchor: Vector2,
 	CopyCount: number,
 	CopySpacing: number,
 	CopyPadding: number,
@@ -23,7 +24,11 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		WindowPosition = Vector2.new(
 			raw.WindowPositionX or InitialPosition.X,
 			raw.WindowPositionY or InitialPosition.Y
-		):Max(Vector2.new(0, 0)), -- Make sure the panel is onscreen
+		),
+		WindowAnchor = Vector2.new(
+			raw.WindowAnchorX or 0,
+			raw.WindowAnchorY or 0
+		),
 		CopyCount = raw.CopyCount or 3,
 		CopySpacing = raw.CopySpacing or 1,
 		CopyPadding = raw.CopyPadding or 0,
@@ -43,6 +48,8 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 	plugin:SetSetting(kSettingsKey, {
 		WindowPositionX = settings.WindowPosition.X,
 		WindowPositionY = settings.WindowPosition.Y,
+		WindowAnchorX = settings.WindowAnchor.X,
+		WindowAnchorY = settings.WindowAnchor.Y,
 		CopyCount = settings.CopyCount,
 		CopySpacing = settings.CopySpacing,
 		CopyPadding = settings.CopyPadding,
