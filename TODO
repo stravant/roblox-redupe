@@ -1,7 +1,8 @@
 Priority
-* Figure out how to allow resizing smaller than something started
+* Preload tutorial images
 * Visual description of multiply snap by count
 * Somehow support extrude
+* Line up the pixels correctly
 
 Other
 * When bent, avoid placing redundant copies exactly over other copies

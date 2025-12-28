@@ -512,7 +512,9 @@ function MoveHandles:_updateHandles()
 				self._boundingBox.CFrame * self:_getBasisOffset() * handleDef.Offset
 			local doubleThis = primaryAxis and handleDef.LocalAxis:FuzzyEq(primaryAxis)
 			local double = doubleThis or doubleAll
-			local size = (self._draggerContext.EndDeltaSize * handleDef.LocalAxis).Magnitude
+			local baseSize = self._draggerContext.EndSize
+			baseSize *= (Vector3.one - (self._draggerContext.PrimaryAxis or Vector3.one))
+			local size = (baseSize * handleDef.LocalAxis).Magnitude
 			self._handles[handleId] = {
 				Outset = if double then self._props.Outset else 0.77,
 				FixedOutset = 0.5 * size,

@@ -94,7 +94,7 @@ end
 
 export type SessionState = {
 	RelativeEndCFrame: CFrame,
-	EndDeltaSize: Vector3,
+	EndSize: Vector3,
 	EndDeltaPosition: Vector3,
 	PrimaryAxis: Vector3?,
 	Center: CFrame,
@@ -174,9 +174,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	draggerContext.StartDragCFrame = center
 	draggerContext.EndCFrame = draggerContext.StartCFrame
 	draggerContext.SnapSize = nil
-	draggerContext.EndDeltaSize = Vector3.zero
+	draggerContext.EndSize = size
 	draggerContext.EndDeltaPosition = Vector3.zero
-	draggerContext.StartEndResizeSize = nil
+	draggerContext.StartResizeSize = nil
 	draggerContext.StartEndResizePosition = nil
 	draggerContext.UseSnapSize = currentSettings.UseSpacing
 
@@ -212,12 +212,13 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 		-- Offset the end CFrame by the change
 		draggerContext.EndCFrame += draggerContext.StartCFrame:VectorToWorldSpace(offsetPer * deltaCopyCount)
-		
-		local endDeltaSize = draggerContext.EndDeltaSize
+
+		local endSize = draggerContext.EndSize
+		local deltaSize = endSize - size
 		local endDeltaPosition = draggerContext.EndDeltaPosition
 
 		-- Offset the end position / size modifications
-		draggerContext.EndDeltaSize += deltaCopyCount * endDeltaSize / (previousCopyCount - 1)
+		draggerContext.EndSize += deltaCopyCount * deltaSize / (previousCopyCount - 1)
 		draggerContext.EndDeltaPosition += deltaCopyCount * endDeltaPosition / (previousCopyCount - 1)
 
 		previousCopyCount = currentSettings.CopyCount
@@ -318,7 +319,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			-- Also clear the size adjustment because we could have
 			-- a size adjustment that does not apply to the new axis
 			-- the user uses next.
-			draggerContext.EndDeltaSize = Vector3.zero
+			draggerContext.EndSize = size
 			draggerContext.EndDeltaPosition = Vector3.zero
 			return
 		end
@@ -328,7 +329,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			-- Perfectly on an axis, lock it in
 			if largest ~= draggerContext.PrimaryAxis then
 				-- Clear size adjustment if changing axis
-				draggerContext.EndDeltaSize = Vector3.zero
+				draggerContext.EndSize = size
 				draggerContext.EndDeltaPosition = Vector3.zero
 			end
 			draggerContext.PrimaryAxis = largest
@@ -407,9 +408,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		if previousCount == newCount or previousCount == nil or newCount == nil then
 			return
 		end
-		local oldSizePer = draggerContext.EndDeltaSize / (previousCount - 1)
+		local deltaSize = draggerContext.EndSize - size
+		local oldSizePer = deltaSize / (previousCount - 1)
 		local oldOffsetPer = draggerContext.EndDeltaPosition / (previousCount - 1)
-		draggerContext.EndDeltaSize = oldSizePer * (newCount - 1)
+		draggerContext.EndSize = size + oldSizePer * (newCount - 1)
 		draggerContext.EndDeltaPosition = oldOffsetPer * (newCount - 1)
 	end
 
@@ -431,18 +433,21 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 		local endOffset = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
 		local placements = {}
+		local deltaSize = draggerContext.EndSize - size
 		for i = 1, copyCount - 1 do
 			local t = i / (copyCount - 1)
 			local mid = draggerContext.StartCFrame:Lerp(draggerContext.EndCFrame, t)
 			local copyPosition = mid + endOffset * t
-			local copySize = size + (draggerContext.EndDeltaSize * t)
-			table.insert(placements, {
-				Position = copyPosition,
-				BoundsOffset = boundsOffset,
-				Size = copySize,
-				Offset = CFrame.new(),
-				PreviousSize = Vector3.new(),
-			})
+			local copySize = size + (deltaSize * t)
+			if copySize.X > 0.001 and copySize.Y > 0.001 and copySize.Z > 0.001 then
+				table.insert(placements, {
+					Position = copyPosition,
+					BoundsOffset = boundsOffset,
+					Size = copySize,
+					Offset = CFrame.new(),
+					PreviousSize = Vector3.new(),
+				})
+			end
 
 			if os.clock() > cutoffTime then
 				warn("Redupe: Too many copies being created, operation aborted to prevent hang.")
@@ -491,6 +496,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		return context.EndCFrame, Vector3.zero, Vector3.zero
 	end)
 
+
 	local rootElement = Roact.createElement(DraggerToolComponent, {
 		Mouse = plugin:GetMouse(),
 		DraggerContext = draggerContext,
@@ -503,14 +509,14 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 					GetBoundingBox = function()
 						return draggerContext.EndCFrame * CFrame.new(draggerContext.EndDeltaPosition),
 							Vector3.zero,
-							Vector3.one + draggerContext.EndDeltaSize
+							draggerContext.EndSize
 					end,
 					StartScale = function()
-						draggerContext.StartEndResizeSize = draggerContext.EndDeltaSize
+						draggerContext.StartResizeSize = draggerContext.EndSize
 						draggerContext.StartEndResizePosition = draggerContext.EndDeltaPosition
 					end,
 					ApplyScale = function(deltaSize, deltaOffset)
-						draggerContext.EndDeltaSize = draggerContext.StartEndResizeSize + deltaSize
+						draggerContext.EndSize = draggerContext.StartResizeSize + deltaSize
 						draggerContext.EndDeltaPosition = draggerContext.StartEndResizePosition + deltaOffset
 						updatePlacement(false)
 						changeSignal:Fire()
@@ -560,7 +566,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 					GetBoundingBox = function()
 						return draggerContext.EndCFrame * CFrame.new(draggerContext.EndDeltaPosition),
 							Vector3.zero,
-							Vector3.one + draggerContext.EndDeltaSize
+							draggerContext.EndSize * (Vector3.one - (draggerContext.PrimaryAxis or Vector3.zero))
 					end,
 					StartTransform = function()
 						draggerContext.StartDragCFrame = draggerContext.EndCFrame
@@ -621,7 +627,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		return {
 			Center = center,
 			RelativeEndCFrame = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame),
-			EndDeltaSize = draggerContext.EndDeltaSize,
+			EndSize = draggerContext.EndSize,
 			EndDeltaPosition = draggerContext.EndDeltaPosition,
 			PrimaryAxis = draggerContext.PrimaryAxis,
 		}
@@ -693,7 +699,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- Restore previous state if requested
 	if previousState then
 		draggerContext.EndCFrame = draggerContext.StartCFrame * previousState.RelativeEndCFrame
-		draggerContext.EndDeltaSize = previousState.EndDeltaSize
+		draggerContext.EndSize = previousState.EndSize
 		draggerContext.EndDeltaPosition = previousState.EndDeltaPosition
 		draggerContext.PrimaryAxis = previousState.PrimaryAxis
 		session.Update()
