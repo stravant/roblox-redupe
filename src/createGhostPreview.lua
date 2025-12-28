@@ -90,7 +90,12 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 	end
 
 	local function getScale(baseSize: Vector3, finalSize: Vector3): number
-		return math.max(finalSize.X / baseSize.X, finalSize.Y / baseSize.Y, finalSize.Z / baseSize.Z)
+		local max = math.max(finalSize.X / baseSize.X, finalSize.Y / baseSize.Y, finalSize.Z / baseSize.Z)
+		if math.abs(max - 1) < 0.001 then
+			return math.min(finalSize.X / baseSize.X, finalSize.Y / baseSize.Y, finalSize.Z / baseSize.Z)
+		else
+			return max
+		end
 	end
 
 	local function adjustSingleInstance(item: Instance, target: Instance, scale: number, targetCFrame: CFrame, targetSize: Vector3): boolean
