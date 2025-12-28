@@ -229,11 +229,15 @@ return function(plugin: Plugin)
 		pluginActive = false
 		destroyUI()
 		destroySession()
+		assert(selectionChangedCn == nil)
+		assert(undoCn == nil)
 	end)
 
 	plugin.Unloading:Connect(function()
 		destroySession()
 		destroyUI()
 		Settings.Save(plugin, activeSettings)
+		assert(selectionChangedCn == nil)
+		assert(undoCn == nil)
 	end)
 end
