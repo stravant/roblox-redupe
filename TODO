@@ -2,7 +2,6 @@ Priority
 * Visual description of multiply snap by count
 * Somehow support extrude
 * Line up the pixels correctly
-* Exclude terrain from selectable stuff
 
 Other
 * When bent, avoid placing redundant copies exactly over other copies

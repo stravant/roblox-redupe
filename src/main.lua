@@ -16,9 +16,10 @@ local ReactRoblox = require(Packages.ReactRoblox)
 local function getFilteredSelection(): { Instance }
 	local selection = Selection:Get()
 	local filtered = {}
+	local terrain = workspace.Terrain
 	for _, item in selection do
 		-- Don't try to duplicate services
-		if item.Parent == game then
+		if item.Parent == game or item == terrain then
 			continue
 		end
 		if item:IsA("BasePart") or item:IsA("Model") or
