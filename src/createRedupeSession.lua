@@ -5,6 +5,7 @@ local DraggerService = game:GetService("DraggerService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Packages = script.Parent.Parent.Packages
 
@@ -188,7 +189,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			if currentSettings.MultilySnapByCount then
 				snap *= draggerContext.SnapMultiplier
 			end
-			return math.floor(delta / snap + 0.5) * snap
+			local result = math.floor(delta / snap + 0.5) * snap
+			assert(result == result, "NaN")
+			return result
 		else
 			return delta
 		end
@@ -209,6 +212,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		
 		local offset = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame)
 		local offsetPer = offset.Position / (previousCopyCount - 1)
+		assert(offsetPer == offsetPer, "NaN")
 
 		-- Offset the end CFrame by the change
 		draggerContext.EndCFrame += draggerContext.StartCFrame:VectorToWorldSpace(offsetPer * deltaCopyCount)
@@ -219,7 +223,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 		-- Offset the end position / size modifications
 		draggerContext.EndSize += deltaCopyCount * deltaSize / (previousCopyCount - 1)
+		assert(draggerContext.EndSize == draggerContext.EndSize, "NaN")
 		draggerContext.EndDeltaPosition += deltaCopyCount * endDeltaPosition / (previousCopyCount - 1)
+		assert(draggerContext.EndDeltaPosition == draggerContext.EndDeltaPosition, "NaN")
 
 		previousCopyCount = currentSettings.CopyCount
 	end
@@ -237,7 +243,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				local offset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
 				local lengthOnAxis = math.abs(draggerContext.PrimaryAxis:Dot(offset))
 				local unPaddedLengthPer = ((lengthOnAxis / (lastCopiesUsed - 1)) - currentSettings.CopyPadding)
+				assert(unPaddedLengthPer == unPaddedLengthPer, "NaN")
 				local spacing = unPaddedLengthPer / draggerContext.PrimaryAxis:Dot(size)
+				assert(spacing == spacing, "NaN")
 				if spacing < 0.01 then
 					warn("Redupe: Spacing settings don't work for this selection (E.g.: A negative padding equal to the selection's size)")
 					currentSettings.CopySpacing = 1
@@ -292,6 +300,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		offset -= offsetOnAxis
 		local offsetMagnitude = offsetOnAxis.Magnitude
 		local newCount = math.floor(offsetMagnitude / sizeOnAxis + 0.5)
+		assert(newCount == newCount, "NaN")
 		if newCount == 0 then
 			-- Need at least one copy so we don't lose the primary axis.
 			newCount = 1
@@ -312,7 +321,8 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- Important.
 	local function updatePrimaryAxis()
 		local offset = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame).Position
-		if offset:FuzzyEq(Vector3.zero) then
+		local inMiddleOfDragWithAxis = draggerContext.PrimaryAxis and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+		if offset:FuzzyEq(Vector3.zero) and not inMiddleOfDragWithAxis then
 			-- Has not moved, clear axis
 			draggerContext.PrimaryAxis = nil
 
@@ -325,7 +335,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		end
 		local largest = largestAxis(offset)
 		local leftover = offset - (largest * offset)
-		if leftover:FuzzyEq(Vector3.zero, 0.001) then
+		if leftover:FuzzyEq(Vector3.zero, 0.001) and not inMiddleOfDragWithAxis then
 			-- Perfectly on an axis, lock it in
 			if largest ~= draggerContext.PrimaryAxis then
 				-- Clear size adjustment if changing axis
@@ -388,14 +398,16 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			-- No primary axis set -> Haven't dragged -> Do nothing
 			return nil
 		elseif currentSettings.UseSpacing then
-			local offset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
-			local offsetOnAxis = (draggerContext.PrimaryAxis * offset).Magnitude
+			local endOffset = draggerContext.EndCFrame:ToObjectSpace(draggerContext.StartCFrame).Position
+			local offsetOnAxis = (draggerContext.PrimaryAxis * endOffset).Magnitude
 			local sizeOnAxis = (draggerContext.PrimaryAxis * draggerContext.SnapSize).Magnitude
 			if math.abs(sizeOnAxis) < 0.01 then
 				warn(`Redupe: Spacing settings result in too many copies ({offsetOnAxis / sizeOnAxis})`)
 				return nil
 			end
-			return math.floor(offsetOnAxis / sizeOnAxis + 0.5) + 1
+			local count = math.floor(offsetOnAxis / sizeOnAxis + 0.5) + 1
+			assert(count == count, "NaN")
+			return count
 		elseif currentSettings.CopyCount < 2 then
 			-- Nothing to create
 			return nil
@@ -405,12 +417,16 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	end
 
 	local function maybeUpdateSizeAdjustments(previousCount: number?, newCount: number?)
-		if previousCount == newCount or previousCount == nil or newCount == nil then
+		if previousCount == newCount or
+			previousCount == nil or newCount == nil or
+			previousCount == 1 or newCount == 1 then
 			return
 		end
 		local deltaSize = draggerContext.EndSize - size
 		local oldSizePer = deltaSize / (previousCount - 1)
+		assert(oldSizePer == oldSizePer, "NaN")
 		local oldOffsetPer = draggerContext.EndDeltaPosition / (previousCount - 1)
+		assert(oldOffsetPer == oldOffsetPer, "NaN")
 		draggerContext.EndSize = size + oldSizePer * (newCount - 1)
 		draggerContext.EndDeltaPosition = oldOffsetPer * (newCount - 1)
 	end
@@ -436,6 +452,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		local deltaSize = draggerContext.EndSize - size
 		for i = 1, copyCount - 1 do
 			local t = i / (copyCount - 1)
+			assert(t == t, "NaN")
 			local mid = draggerContext.StartCFrame:Lerp(draggerContext.EndCFrame, t)
 			local copyPosition = mid + endOffset * t
 			local copySize = size + (deltaSize * t)
@@ -570,12 +587,33 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 					end,
 					StartTransform = function()
 						draggerContext.StartDragCFrame = draggerContext.EndCFrame
+
+						local count = getCopyCount()
+						if count then
+							local endOffset = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame)
+							local position = endOffset.Position
+							local onAxisPosition = draggerContext.PrimaryAxis * position
+							local offAxisPosition = position - onAxisPosition
+							local offAxisPositionPer = offAxisPosition / (count - 1)
+							assert(offAxisPositionPer == offAxisPositionPer, "NaN")
+							draggerContext.StartDragCopies = count
+							draggerContext.OffAxisPositionPer =
+								draggerContext.StartDragCFrame:VectorToWorldSpace(offAxisPositionPer)
+						else
+							draggerContext.StartDragCopies = 1
+							draggerContext.OffAxisPositionPer = Vector3.zero
+						end
 					end,
 					ApplyTransform = function(globalTransform: CFrame)
 						local previousCopyCount = getCopyCount()
 						draggerContext.EndCFrame = globalTransform * draggerContext.StartDragCFrame
+						local newCount = getCopyCount()
+						if newCount then
+							draggerContext.EndCFrame += draggerContext.OffAxisPositionPer * (newCount - draggerContext.StartDragCopies)
+						end
+
 						updatePrimaryAxis()
-						maybeUpdateSizeAdjustments(previousCopyCount, getCopyCount())
+						maybeUpdateSizeAdjustments(previousCopyCount, newCount)
 						updatePlacement(false)
 						changeSignal:Fire()
 					end,
