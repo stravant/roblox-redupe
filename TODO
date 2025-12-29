@@ -1,8 +1,7 @@
-Priority
+
+* Make UI dockable as a panel (I do want this).
+* Support ResizeAligning model contents like Archimedes does.
+* When bent, avoid placing redundant copies exactly over other copies
 * Visual description of multiply snap by count
 * Somehow support extrude
 * Line up the pixels correctly
-
-Other
-* When bent, avoid placing redundant copies exactly over other copies
-* Make UI dockable as a panel (I do want this).
