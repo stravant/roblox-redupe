@@ -39,16 +39,39 @@ else
 	end)
 end
 
--- Lazy load the main plugin on first click
+-- Create the dockable panel
+local params = DockWidgetPluginGuiInfo.new(
+	Enum.InitialDockState.Float,
+	false, -- Is it initially enabled
+	false, -- Override the previous state
+	240, -- Default width
+	200, -- Default height
+	240, -- Minimum width
+	200  -- Minimum height
+)
+local panel = plugin:CreateDockWidgetPluginGuiAsync("RedupePanel", params)
+
 local loaded = false
+local function doInitialLoad()
+	loaded = true
+	require(script.Parent.Src.main)(plugin, panel, buttonClicked, setButtonActive)
+end
+
+-- Lazy load the main plugin on first click
 local clickedCn = buttonClicked:Connect(function()
 	if not loaded then
-		loaded = true
-		require(script.Parent.Src.main)(plugin, buttonClicked, setButtonActive)
+		doInitialLoad()
 		-- Refire event now that the plugin is listening
 		buttonClicked:Fire()
 	end
 end)
+
+panel.Title = "Redupe"
+panel.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+if panel.Enabled then
+	doInitialLoad()
+end
+
 plugin.Deactivation:Connect(function()
 	clickedCn:Disconnect()
 end)

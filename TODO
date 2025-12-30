@@ -1,9 +1,7 @@
-
-* Make UI dockable as a panel (I do want this).
+Features
 * Support ResizeAligning model contents like Archimedes does.
 * When bent, avoid placing redundant copies exactly over other copies
 * Make it scrollable in the viewport as well?
-* Figure out why the color chip in the XYZ box doesn't work while docked
 * Visual description of multiply snap by count
 * Somehow support extrude
 * Line up the pixels correctly

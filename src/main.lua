@@ -30,9 +30,11 @@ local function getFilteredSelection(): { Instance }
 	return filtered
 end
 
-return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive: (active: boolean) -> ())
+return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signal.Signal<>, setButtonActive: (active: boolean) -> ())
 	-- The current session
 	local session: createRedupeSession.RedupeSession? = nil
+
+	local active = false
 
 	local activeSettings = Settings.Load(plugin)
 
@@ -42,16 +44,13 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 	local undoCn: RBXScriptConnection? = nil
 
 	local reactRoot: ReactRoblox.RootType? = nil
-	local reactScreenGui: ScreenGui? = nil
+	local reactScreenGui: LayerCollector? = nil
 
 	local temporarilyIgnoreSelectionChanges = false
 
-	local function destroyUI()
-		setButtonActive(false)
-		if selectionChangedCn then
-			selectionChangedCn:Disconnect()
-			selectionChangedCn = nil
-		end
+	local handleAction: (string) -> () = nil
+
+	local function destroyReactRoot()
 		if reactRoot then
 			reactRoot:unmount()
 			reactRoot = nil
@@ -61,11 +60,35 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 			reactScreenGui = nil
 		end
 	end
-
-	local handleAction: (string) -> () = nil
+	local function createReactRoot()
+		if panel.Enabled then
+			reactRoot = ReactRoblox.createRoot(panel)
+		else
+			local screen = Instance.new("ScreenGui")
+			screen.Name = "RedupeMainGui"
+			screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+			screen.Parent = CoreGui
+			reactScreenGui = screen
+			reactRoot = ReactRoblox.createRoot(screen)
+		end
+	end
 
 	local function updateUI()
-		if reactRoot then
+		local needsUI = active or panel.Enabled
+		if needsUI then
+			if not reactRoot then
+				createReactRoot()
+			elseif panel.Enabled and reactScreenGui ~= nil then
+				-- Moved to panel, need to destroy old gui and recreate root
+				destroyReactRoot()
+				createReactRoot()
+			elseif not panel.Enabled and reactScreenGui == nil then
+				-- Moved to screen gui, need to destroy old gui and recreate root
+				destroyReactRoot()
+				createReactRoot()
+			end
+
+			assert(reactRoot, "We just created it")
 			reactRoot:render(React.createElement(MainGui, {
 				CanPlace = session and session.CanPlace() or false,
 				HasSession = session ~= nil,
@@ -77,11 +100,32 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 					updateUI()
 				end,
 				HandleAction = handleAction,
+				Panelized = panel.Enabled,
+				Active = active,
 			}))
+		elseif reactRoot then
+			destroyReactRoot()
 		end
 	end
 
 	local onSelectionChange
+	local function setActive(newActive: boolean)
+		if active == newActive then
+			return
+		end
+		setButtonActive(newActive)
+		if newActive then
+			selectionChangedCn = Selection.SelectionChanged:Connect(onSelectionChange)
+			active = true
+		else
+			if selectionChangedCn then
+				selectionChangedCn:Disconnect()
+				selectionChangedCn = nil
+			end
+			active = false
+		end
+		updateUI()
+	end
 
 	local function destroySession()
 		if session then
@@ -140,15 +184,11 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 		-- Don't reuse rotations when pressing done, only when stamping
 		activeSettings.Rotation = CFrame.new()
 
-		destroyUI()
+		setActive(false)
 		destroySession()
 
 		-- Explict X press -> Deactivate
 		plugin:Deactivate()
-	end
-
-	local function uiPresent()
-		return reactRoot ~= nil
 	end
 	
 	function onSelectionChange()
@@ -163,22 +203,9 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 		tryCreateSession()
 	end
 
-	local function createUI()
-		selectionChangedCn = Selection.SelectionChanged:Connect(onSelectionChange)
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.Name = "RedupeReactUI"
-		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		screenGui.Parent = CoreGui
-		reactScreenGui = screenGui
-		reactRoot = ReactRoblox.createRoot(screenGui)
-		updateUI()
-	end
-
 	local function doReset()
 		activeSettings.Rotation = CFrame.new() -- Need to reset rotation here
-		if not uiPresent() then
-			createUI()
-		end
+		setActive(true)
 		tryCreateSession()
 	end
 
@@ -198,6 +225,11 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 			closeRequested()
 		elseif action == "reset" then
 			doReset()
+		elseif action == "togglePanelized" then
+			panel.Enabled = not panel.Enabled
+			updateUI()
+		else
+			warn("Unknown action: "..action)
 		end
 		task.defer(function()
 			temporarilyIgnoreSelectionChanges = false
@@ -207,24 +239,25 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 	local clickedCn = buttonClicked:Connect(function()
 		-- If the plugin is already open but nothing is selected treat the
 		-- button press as closing the panel.
-		if uiPresent() and (#getFilteredSelection() == 0) then
-			setButtonActive(false)
-			destroyUI()
+		if active and (#getFilteredSelection() == 0) then
+			setActive(false)
 			destroySession()
 		else
 			-- If the plugin is not open, open it and try to begin a session.
 			-- If there is no selection the user will see a UI telling them
 			-- to select something.
-			setButtonActive(true)
 			doReset()
 		end
 	end)
+
+	-- Initial UI show in the case where we're in Panelized mode
+	updateUI()
 
 	-- When the user selects a different tool, stop doing anything, destroy the
 	-- UI and the session.
 	plugin.Deactivation:Connect(function()
 		pluginActive = false
-		destroyUI()
+		setActive(false)
 		destroySession()
 		assert(selectionChangedCn == nil)
 		assert(undoCn == nil)
@@ -232,10 +265,13 @@ return function(plugin: Plugin, buttonClicked: Signal.Signal<>, setButtonActive:
 
 	plugin.Unloading:Connect(function()
 		destroySession()
-		destroyUI()
+		setActive(false)
+		destroyReactRoot()
 		Settings.Save(plugin, activeSettings)
 		clickedCn:Disconnect()
 		assert(selectionChangedCn == nil)
 		assert(undoCn == nil)
+		assert(reactRoot == nil)
+		assert(reactScreenGui == nil)
 	end)
 end

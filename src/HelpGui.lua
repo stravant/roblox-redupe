@@ -172,7 +172,7 @@ function HelpGui.BasicTooltip(props: {
 end
 
 function HelpGui.HelpDisplay(props: {
-
+	Panelized: boolean,
 })
 	local helpContext = HelpGui.use()
 	local frameRef = React.useRef(nil)
@@ -180,24 +180,28 @@ function HelpGui.HelpDisplay(props: {
 	local X_PLACEMENT = 0.75
 
 	-- Find offset if there's a message to display
-	local offset = UDim2.new(X_PLACEMENT, 0, 0, 0)
+	local xOffset = if props.Panelized then 0.2 else X_PLACEMENT
+	local offset = UDim2.new(xOffset, 0, 0, 0)
 	if frameRef.current and helpContext.HelpMessage then
 		assert(helpContext.HelpMessage.Source:IsA("GuiObject"))
 		local offsetY = helpContext.HelpMessage.Source.AbsolutePosition.Y - frameRef.current.AbsolutePosition.Y
-		offset = UDim2.new(X_PLACEMENT, 0, 0, offsetY)
+		offset = UDim2.new(xOffset, 0, 0, offsetY)
 	end
 
 	-- TODO: Possibly display tooltip in a better place if the user has the popup
 	-- near the left of the viewport.
 
 	return e("Frame", {
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.fromScale(1, 0),
 		BackgroundTransparency = 1,
 		ZIndex = 3, -- hardcode ZIndex here, hack
 		ref = frameRef,
 	}, {
 		HelpContent = helpContext.HelpMessage and e("Frame", {
 			Position = offset,
+			Size = UDim2.fromScale(1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			AnchorPoint = Vector2.new(0, 0.5),
 			BackgroundTransparency = 1,
 		}, {
 			Content = helpContext.HelpMessage.Help,

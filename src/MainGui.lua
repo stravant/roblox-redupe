@@ -36,7 +36,7 @@ local WHITE = Color3.fromRGB(255, 255, 255)
 local DARK_RED = Color3.new(0.705882, 0, 0)
 local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
 
-local function SubPanel(props: {
+local function _GoodSubPanel(props: {
 	Title: string,
 	Padding: UDim?,
 	LayoutOrder: number?,
@@ -143,6 +143,72 @@ local function SubPanel(props: {
 		}, {
 			Padding = e("UIPadding", {
 				PaddingLeft = UDim.new(0, TITLE_PADDING),
+			}),
+		}),
+		Content = e("Frame", {
+			Position = UDim2.fromOffset(INSET * 2, INSET * 2),
+			Size = UDim2.new(1, -(INSET * 4), 0, 0),
+			BackgroundTransparency = 1,
+			AutomaticSize = Enum.AutomaticSize.Y,
+		}, content),
+		Padding = e("UIPadding", {
+			PaddingBottom = UDim.new(0, INSET * 2),
+		}),
+	})
+end
+
+local function SubPanel(props: {
+	Title: string,
+	Padding: UDim?,
+	LayoutOrder: number?,
+	children: React.ReactElement<any>?,
+})
+	local TITLE_PADDING = 2
+	local INSET = 6
+	local TITLE_SIZE = 2 * INSET + 2
+
+	local content = table.clone(props.children or {})
+	content.ListLayout = e("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = props.Padding,
+	})
+
+	return e("Frame", {
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = props.LayoutOrder,
+		BackgroundTransparency = 1,
+	}, {
+		TitleLabel = e("TextLabel", {
+			Size = UDim2.fromScale(0, 0),
+			Position = UDim2.fromOffset(INSET * 2, -3),
+			AutomaticSize = Enum.AutomaticSize.XY,
+			BorderSizePixel = 0,
+			BackgroundColor3 = BLACK,
+			TextColor3 = WHITE,
+			Text = props.Title,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Font = Enum.Font.SourceSansBold,
+			TextSize = TITLE_SIZE,
+			ZIndex = 2,
+		}, {
+			Padding = e("UIPadding", {
+				PaddingLeft = UDim.new(0, TITLE_PADDING),
+				PaddingRight = UDim.new(0, TITLE_PADDING),
+			}),
+		}),
+		BorderHolder = e("Frame", {
+			Position = UDim2.fromOffset(INSET, INSET),
+			Size = UDim2.new(1, -(INSET * 2), 1, 0),
+			BackgroundTransparency = 1,
+		}, {
+			Corner = e("UICorner", {
+				CornerRadius = UDim.new(0, 5),
+			}),
+			Stroke = e("UIStroke", {
+				Color = WHITE,
+				BorderOffset = UDim.new(0, -1),
+				Thickness = 1.6,
 			}),
 		}),
 		Content = e("Frame", {
@@ -991,13 +1057,15 @@ local function ResultPanel(props: {
 				end,
 			}),
 			LayoutOrder = 2,
-		})
+		}),
 	})
 end
 
 local function SessionTopInfoRow(props: {
 	LayoutOrder: number?,
 	ShowHelpToggle: boolean,
+	Panelized: boolean,
+	HandleAction: (string) -> (),
 })
 	local helpContext = HelpGui.use()
 	local stHoveredRef = React.useRef(0)
@@ -1019,7 +1087,18 @@ local function SessionTopInfoRow(props: {
 			FillDirection = Enum.FillDirection.Horizontal,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 		}),
-		DragText = e("TextLabel", {
+		PopoutPanelButton = e("ImageButton", {
+			Size = UDim2.fromOffset(16, 16),
+			BackgroundTransparency = 1,
+			Image = if props.Panelized
+				then "rbxassetid://138963813997953"
+				else "rbxassetid://86290965429311",
+			LayoutOrder = 0,
+			[React.Event.MouseButton1Click] = function()
+				props.HandleAction("togglePanelized")
+			end,
+		}),
+		DragText = not props.Panelized and e("TextLabel", {
 			AutomaticSize = Enum.AutomaticSize.XY,
 			BackgroundTransparency = 1,
 			TextColor3 = WHITE,
@@ -1030,7 +1109,8 @@ local function SessionTopInfoRow(props: {
 		}, {
 			Padding = e("UIPadding", {
 				PaddingBottom = UDim.new(0, 4),
-				PaddingRight = UDim.new(0, 3),
+				PaddingRight = UDim.new(0, 2),
+				PaddingLeft = UDim.new(0, 3),
 			}),
 		}),
 		STLogoGraph = e("ImageLabel", {
@@ -1163,17 +1243,14 @@ local function SessionView(props: {
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
-})
-	local beginDrag = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
+	Panelized: boolean,
+}): React.ReactNode
+	local beginDrag = if props.Panelized
+		then nil
+		else createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
 	local nextOrder = createNextOrder()
-	return e("ImageButton", {
-		Image = "",
-		AutoButtonColor = false,
-		Size = UDim2.new(0, 240, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-		[React.Event.MouseButton1Down] = beginDrag,
-	}, {
+
+	local content = {
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 8),
 		}),
@@ -1181,9 +1258,15 @@ local function SessionView(props: {
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 0),
 		}),
+		-- Don't let things feel crowded at the bottom of the scrolling panel
+		Padding = props.Panelized and e("UIPadding", {
+			PaddingBottom = UDim.new(0, 40),
+		}),
 		TopInfoRow = e(SessionTopInfoRow, {
 			LayoutOrder = nextOrder(),
 			ShowHelpToggle = true,
+			Panelized = props.Panelized,
+			HandleAction = props.HandleAction,
 		}),
 		OperationPanel = e(OperationPanel, {
 			GroupAs = props.CurrentSettings.GroupAs,
@@ -1207,12 +1290,31 @@ local function SessionView(props: {
 			UpdatedSettings = props.UpdatedSettings,
 			LayoutOrder = nextOrder(),
 		}),
-	})
+	}
+
+	if props.Panelized then
+		return e("Frame", {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = BLACK,
+		}, content)
+	else
+		return e("ImageButton", {
+			Image = "",
+			AutoButtonColor = false,
+			Size = UDim2.new(0, 240, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = BLACK,
+			[React.Event.MouseButton1Down] = beginDrag,
+		}, content)
+	end
 end
 
 local function EmptySessionView(props: {
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
+	HandleAction: (string) -> (),
+	Panelized: boolean,
 })
 	local beginDrag = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
 
@@ -1234,6 +1336,8 @@ local function EmptySessionView(props: {
 		TopInfoRow = e(SessionTopInfoRow, {
 			LayoutOrder = 1,
 			ShowHelpToggle = false,
+			HandleAction = props.HandleAction,
+			Panelized = props.Panelized,
 		}),
 		InfoLabel = e("TextLabel", {
 			Size = UDim2.new(1, 0, 0, 120),
@@ -1257,51 +1361,165 @@ local function EmptySessionView(props: {
 	})
 end
 
-local function MainGui(props: {
+local function MainGuiViewport(props: {
 	HasSession: boolean,
 	CanPlace: boolean,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
+	Active: boolean,
 })
 	local settings = props.CurrentSettings
 
 	-- Ugly hack, need to make a special layer for the Tutorial to not interrupt
 	-- automatic sizing of the main SessionView
-	local showTutorial = not props.CurrentSettings.DoneTutorial and props.CurrentSettings.HaveHelp
+	local showTutorial = not settings.DoneTutorial and settings.HaveHelp
 
-	return e(HelpGui.Provider, {
-		CurrentSettings = props.CurrentSettings,
-		UpdatedSettings = props.UpdatedSettings,
+	return e("Frame", {
+		Size = UDim2.fromOffset(240, 0),
+		Position = UDim2.new(
+			settings.WindowAnchor.X, settings.WindowPosition.X,
+			settings.WindowAnchor.Y, settings.WindowPosition.Y),
+		AnchorPoint = settings.WindowAnchor,
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		[React.Tag] = "MainWindow",
 	}, {
-		e("Frame", {
-			Size = UDim2.fromOffset(240, 0),
-			Position = UDim2.new(
-				settings.WindowAnchor.X, settings.WindowPosition.X,
-				settings.WindowAnchor.Y, settings.WindowPosition.Y),
-			AnchorPoint = settings.WindowAnchor,
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			[React.Tag] = "MainWindow",
+		Content = if props.HasSession
+			then e(SessionView, {
+				CanPlace = props.CanPlace,
+				CurrentSettings = props.CurrentSettings,
+				UpdatedSettings = props.UpdatedSettings,
+				HandleAction = props.HandleAction,
+				Panelized = false,
+			})
+			else e(EmptySessionView, {
+				CurrentSettings = props.CurrentSettings,
+				UpdatedSettings = props.UpdatedSettings,
+				Panelized = false,
+				HandleAction = props.HandleAction,
+			}),
+		ActualTutorialGui = showTutorial and e(TutorialGui, {
+			ClickedDone = function()
+				props.CurrentSettings.DoneTutorial = true
+				props.UpdatedSettings()
+			end,
+		}),
+		HelpDisplay = e(HelpGui.HelpDisplay, {
+			Panelized = false,
+		}),
+	})
+end
+
+local function MainGuiPanelized(props: {
+	HasSession: boolean,
+	CanPlace: boolean,
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	HandleAction: (string) -> (),
+	Active: boolean,
+}): React.ReactNode
+	if props.Active then
+		return e("ScrollingFrame", {
+			Size = UDim2.fromScale(1, 1),
+			CanvasSize = UDim2.fromScale(1, 0),
+			BorderSizePixel = 0,
+			BackgroundColor3 = BLACK,
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			ScrollBarThickness = 0,
 		}, {
+			Padding = e("UIPadding", {
+				PaddingBottom = UDim.new(0, 4),
+				PaddingTop = UDim.new(0, 4),
+			}),
 			Content = if props.HasSession
 				then e(SessionView, {
 					CanPlace = props.CanPlace,
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
 					HandleAction = props.HandleAction,
+					Panelized = true,
 				})
 				else e(EmptySessionView, {
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
+					Panelized = true,
+					HandleAction = props.HandleAction,
 				}),
-			ActualTutorialGui = showTutorial and e(TutorialGui, {
-				ClickedDone = function()
-					props.CurrentSettings.DoneTutorial = true
-					props.UpdatedSettings()
-				end,
+			HelpDisplay = e(HelpGui.HelpDisplay, {
+				Panelized = true,
 			}),
-			HelpDisplay = e(HelpGui.HelpDisplay),
+		})
+	else
+		return e("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = BLACK,
+			BorderSizePixel = 0,
+		}, {
+			CenteredContent = e("Frame", {
+				Size = UDim2.fromOffset(200, 0),
+				AutomaticSize = Enum.AutomaticSize.XY,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				BackgroundTransparency = 1,
+			}, {
+				ListLayout = e("UIListLayout", {
+					FillDirection = Enum.FillDirection.Vertical,
+					HorizontalAlignment = Enum.HorizontalAlignment.Center,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 10),
+				}),
+			}, {
+				Content = e("TextButton", {
+					LayoutOrder = 2,
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					TextColor3 = WHITE,
+					BackgroundColor3 = ACTION_BLUE,
+					RichText = true,
+					Text = "<font size=\"26\" face=\"SourceSans\">Activate</font> <i>Redupe</i>",
+					Font = Enum.Font.SourceSansBold,
+					TextSize = 26,
+					[React.Event.MouseButton1Click] = function()
+						props.HandleAction("reset")
+					end,
+				}, {
+					Corner = e("UICorner", {
+						CornerRadius = UDim.new(0, 8),
+					}),
+					Padding = e("UIPadding", {
+						PaddingBottom = UDim.new(0, 8),
+						PaddingTop = UDim.new(0, 8),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+				}),
+			}),
+		})
+	end
+end
+
+local function MainGui(props: {
+	HasSession: boolean,
+	CanPlace: boolean,
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	HandleAction: (string) -> (),
+	Panelized: boolean,
+	Active: boolean,
+})
+	return e(HelpGui.Provider, {
+		CurrentSettings = props.CurrentSettings,
+		UpdatedSettings = props.UpdatedSettings,
+	}, {
+		Viewport = e(props.Panelized and MainGuiPanelized or MainGuiViewport, {
+			HasSession = props.HasSession,
+			CanPlace = props.CanPlace,
+			CurrentSettings = props.CurrentSettings,
+			UpdatedSettings = props.UpdatedSettings,
+			HandleAction = props.HandleAction,
+			Active = props.Active,
 		}),
 	})
 end
