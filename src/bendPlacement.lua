@@ -1,5 +1,5 @@
 export type Placement = {
-	Position: CFrame,
+	CFrame: CFrame,
 	BoundsOffset: Vector3,
 	Size: Vector3,
 	PreviousSize: Vector3,

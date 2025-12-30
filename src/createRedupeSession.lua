@@ -448,7 +448,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		local cutoffTime = startTime + CREATION_THROTTLE_TIME
 
 		local endOffset = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
-		local placements = {}
+		local placements = {} :: {bendPlacement.Placement}
 		local deltaSize = draggerContext.EndSize - size
 		for i = 1, copyCount - 1 do
 			local t = i / (copyCount - 1)
@@ -458,7 +458,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			local copySize = size + (deltaSize * t)
 			if copySize.X > 0.001 and copySize.Y > 0.001 and copySize.Z > 0.001 then
 				table.insert(placements, {
-					Position = copyPosition,
+					CFrame = copyPosition,
 					BoundsOffset = boundsOffset,
 					Size = copySize,
 					Offset = CFrame.new(),
@@ -475,10 +475,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		-- Convert positions to offsets and apply bending
 		for i, placement in placements do
 			if i == 1 then
-				placement.Offset = draggerContext.StartCFrame:ToObjectSpace(placement.Position)
+				placement.Offset = draggerContext.StartCFrame:ToObjectSpace(placement.CFrame)
 				placement.PreviousSize = size
 			else
-				placement.Offset = placements[i - 1].Position:ToObjectSpace(placement.Position)
+				placement.Offset = placements[i - 1].CFrame:ToObjectSpace(placement.CFrame)
 				placement.PreviousSize = placements[i - 1].Size
 			end
 
