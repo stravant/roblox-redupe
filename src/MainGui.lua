@@ -1270,7 +1270,7 @@ local function SessionView(props: {
 		}),
 		OperationPanel = e(OperationPanel, {
 			GroupAs = props.CurrentSettings.GroupAs,
-			CopyCount = props.CurrentSettings.CopyCount,
+			CopyCount = props.CurrentSettings.FinalCopyCount,
 			CanPlace = props.CanPlace,
 			HandleAction = props.HandleAction,
 			LayoutOrder = nextOrder(),

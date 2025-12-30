@@ -5,11 +5,12 @@ export type RedupeSettings = {
 	WindowPosition: Vector2,
 	WindowAnchor: Vector2,
 	CopyCount: number,
+	FinalCopyCount: number, -- Not saved, after redundancy is accounted for
 	CopySpacing: number,
 	CopyPadding: number,
 	UseSpacing: boolean,
 	MultilySnapByCount: boolean,
-	Rotation: CFrame,
+	Rotation: CFrame, -- Not saved, only to comunicate between archituctural layers
 	TouchSide: number,
 	GroupAs: string,
 	AddOriginalToGroup: boolean,
@@ -30,6 +31,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 			raw.WindowAnchorY or 0
 		),
 		CopyCount = raw.CopyCount or 3,
+		FinalCopyCount = raw.CopyCount or 3, -- Intentionally also copy count
 		CopySpacing = raw.CopySpacing or 1,
 		CopyPadding = raw.CopyPadding or 0,
 		UseSpacing = if raw.UseSpacing == nil then true else raw.UseSpacing,

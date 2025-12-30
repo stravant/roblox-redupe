@@ -1,6 +1,5 @@
 Features
 * Support ResizeAligning model contents like Archimedes does.
-* When bent, avoid placing redundant copies exactly over other copies
 * Make it scrollable in the viewport as well?
 * Visual description of multiply snap by count
 * Somehow support extrude

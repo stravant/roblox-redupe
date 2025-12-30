@@ -431,6 +431,41 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		draggerContext.EndDeltaPosition = oldOffsetPer * (newCount - 1)
 	end
 
+	local function computeRedundantRotationLimit(): number
+		local angles = Vector3.new(currentSettings.Rotation:ToEulerAnglesXYZ())
+		local nonZeroCount = 0
+		if math.abs(angles.X) > 0.001 then
+			nonZeroCount += 1
+		end
+		if math.abs(angles.Y) > 0.001 then
+			nonZeroCount += 1
+		end
+		if math.abs(angles.Z) > 0.001 then
+			nonZeroCount += 1
+		end
+		if nonZeroCount ~= 1 then
+			-- If the count is, zero, there's definitely no overlap.
+			-- If the count is two, having it overlap would require very precisely
+			-- chosen analytic angles, almost impossible to achive in practice.
+			-- With three, I don't think it's possible to have exact overlap
+			-- given the way I do roll application.
+			return math.huge
+		end
+
+		local theAngle = math.abs(angles:Dot(Vector3.one))
+		local steps = (math.pi * 2) / theAngle
+		assert(steps == steps, "NaN")
+
+		-- does steps = p / q for integers p, q?
+		for q = 1, 128 do
+			local p = math.floor(steps * q + 0.5)
+			if math.abs(steps - p / q) < 0.001 then
+				return math.floor(steps * q + 0.5)
+			end
+		end
+		return math.huge
+	end
+
 	local function updatePlacement(done: boolean): {{ Instance }}?
 		ghostPreview.hide()
 
@@ -472,8 +507,16 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			end
 		end
 
+		-- If the user places many copies with rotation, some of the later
+		-- copies may exactly overlap earlier copies. Establish where this
+		-- starts happening, or infinity if it does not.
+		local redundantLimit = computeRedundantRotationLimit()
+
 		-- Convert positions to offsets and apply bending
 		for i, placement in placements do
+			if i > redundantLimit then
+				break
+			end
 			if i == 1 then
 				placement.Offset = draggerContext.StartCFrame:ToObjectSpace(placement.CFrame)
 				placement.PreviousSize = size
@@ -505,6 +548,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		-- Remember the copy count for snapping purposes
 		draggerContext.SnapMultiplier = copyCount - 1
 		currentSettings.CopyCount = copyCount
+		currentSettings.FinalCopyCount = math.min(copyCount, redundantLimit)
 		return results
 	end
 
