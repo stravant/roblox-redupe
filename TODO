@@ -6,5 +6,4 @@ Features
 * Line up the pixels correctly
 
 Bugs
-* UICorner not applying to CanvasGroup inside DockWidgetPluginGui
 * UIPath breaks event handling for containing ScrollingFrame
