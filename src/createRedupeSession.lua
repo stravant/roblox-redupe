@@ -471,6 +471,13 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		return math.huge
 	end
 
+	local function shouldResizeAlign(): boolean
+		if currentSettings.Rotation:FuzzyEq(CFrame.identity) then
+			return false
+		end
+		return currentSettings.ResizeAlign
+	end
+
 	local function updatePlacement(done: boolean): ({{ Instance }}?, CFrame?)
 		ghostPreview.hide()
 
@@ -534,22 +541,25 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			bendPlacement(placement, draggerContext.PrimaryAxis, currentSettings.Rotation, currentSettings.TouchSide, currentSettings.CopyPadding, currentSettings.CopySpacing)
 		end
 
-		local DO_RESIZALIGN = true
+		local doResizeAlign = shouldResizeAlign()
 
 		-- Place using offsets
 		local runningPosition = draggerContext.StartCFrame
-		local results = {}
+		local lastCopy = targets
+		local resultsPerTarget = {}
+		for i = 1, #targets do
+			resultsPerTarget[i] = {}
+		end
 		for i, placement in placements do
 			if i >= redundantLimit then
 				break
 			end
 			local priorRunningPosition = runningPosition
 			runningPosition *= placement.Offset
-			table.insert(results, ghostPreview.create(not done, runningPosition, placement.Size))
+			local previewResults = ghostPreview.create(not done, runningPosition, placement.Size)
 
-			if DO_RESIZALIGN and done then
+			if doResizeAlign and done then
 				-- Do resizealigning. TODO: Decide when to try this or not.
-				local lastCopy = if i > 1 then results[#results - 1] else targets
 				local lastBasis;
 				if i > 1 then
 					local lastPlacement = placements[i - 1]
@@ -565,14 +575,26 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						Size = size,
 					}
 				end
-				local thisCopy = results[#results]
+				local thisCopy = previewResults
 				local thisInfo = {
 					CFrame = runningPosition,
 					Offset = boundsOffset,
 					Size = placement.Size,
 				}
-				resizeAlignPairs(lastCopy, thisCopy, lastBasis, thisInfo, draggerContext.PrimaryAxis)
+				local resizeAlignResults = resizeAlignPairs(lastCopy, thisCopy, lastBasis, thisInfo, draggerContext.PrimaryAxis)
+				for j, resizeAlignResult in resizeAlignResults do
+					for _, resultInstance in resizeAlignResult do
+						table.insert(resultsPerTarget[j], resultInstance)
+					end
+				end
 			end
+
+			-- This must insert the actual copy after any auxiliary instances
+			-- created by resize align.
+			for j, resultInstance in previewResults do
+				table.insert(resultsPerTarget[j], resultInstance)
+			end
+			lastCopy = previewResults
 
 			if os.clock() > cutoffTime then
 				warn("Redupe: Too many copies being created, operation aborted to prevent hang.")
@@ -587,7 +609,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		draggerContext.SnapMultiplier = copyCount - 1
 		currentSettings.CopyCount = copyCount
 		currentSettings.FinalCopyCount = math.min(copyCount, redundantLimit)
-		return results, runningPosition
+		return resultsPerTarget, runningPosition
 	end
 
 	-- Schema
@@ -706,7 +728,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 	local handle = Roact.mount(rootElement)
 
-	local function packageResults(results: {{ Instance }})
+	local function packageResults(resultsPerTarget: {{ Instance }})
 		local createdContainers = {}
 		local containers = {}
 		for i, target in targets do
@@ -728,8 +750,8 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				table.insert(createdContainers, container)
 			end
 		end
-		for _, copyList in results do
-			for i, copy in copyList do
+		for i, resultList in resultsPerTarget do
+			for _, copy in resultList do
 				copy.Parent = containers[i]
 			end
 		end
@@ -774,8 +796,8 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		rotatedAxisDisplay:Destroy()
 	end
 	session.Commit = function(groupResults: boolean)
-		local finalResults, finalPosition = updatePlacement(true)
-		if not finalResults then
+		local resultsPerTarget, finalPosition = updatePlacement(true)
+		if not resultsPerTarget then
 			-- Nothing objects placed
 			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
 			recordingInProgress = nil
@@ -785,14 +807,18 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		-- Put results into containers if needed
 		local createdContainers
 		if groupResults then
-			createdContainers = packageResults(finalResults)
+			createdContainers = packageResults(resultsPerTarget)
 		else
 			createdContainers = {}
 		end
 		if #createdContainers > 0 then
 			Selection:Set(createdContainers)
 		else
-			Selection:Set(finalResults[#finalResults])
+			local toSelect = {}
+			for i, resultList in resultsPerTarget do
+				toSelect[i] = resultList[#resultList]
+			end
+			Selection:Set(toSelect)
 		end
 
 		if recordingInProgress then

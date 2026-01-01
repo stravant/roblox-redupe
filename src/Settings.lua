@@ -16,6 +16,7 @@ export type RedupeSettings = {
 	AddOriginalToGroup: boolean,
 	HaveHelp: boolean,
 	DoneTutorial: boolean,
+	ResizeAlign: boolean,
 }
 
 local function loadSettings(plugin: Plugin): RedupeSettings
@@ -43,6 +44,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		AddOriginalToGroup = if raw.AddOriginalToGroup == nil then true else raw.AddOriginalToGroup,
 		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
 		DoneTutorial = if raw.DoneTutorial ~= nil then raw.DoneTutorial else false,
+		ResizeAlign = if raw.ResizeAlign ~= nil then raw.ResizeAlign else true,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)
@@ -62,6 +64,7 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 		AddOriginalToGroup = settings.AddOriginalToGroup,
 		HaveHelp = settings.HaveHelp,
 		DoneTutorial = settings.DoneTutorial,
+		ResizeAlign = settings.ResizeAlign,
 	})
 end
 

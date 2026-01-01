@@ -856,7 +856,7 @@ local function RotateModeImageChip(props: {
 	local helpContext = HelpGui.use()
 
 	return e("ImageButton", {
-		Size = UDim2.new(0, 0, 0, helpContext.HaveHelp and 43 or 46),
+		Size = UDim2.new(0, 0, 0, helpContext.HaveHelp and 33 or 36),
 		BackgroundTransparency = 1,
 		Image = props.Image,
 		ImageColor3 = if not props.IsCurrent and isHovered then WHITE:Lerp(BLACK, 0.3) else WHITE,
@@ -966,6 +966,21 @@ local function RotationPanel(props: {
 			Subject = e(RotateModeToggle, {
 				CurrentSettings = props.CurrentSettings,
 				UpdatedSettings = props.UpdatedSettings,
+			}),
+			LayoutOrder = 2,
+		}),
+		e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "Should the parts in copies next to eachother be resized up to the point where they align? Wedges will be used to fill any large gaps.\n" ..
+					"• This will only apply to parts which span the full size of the selection on the axis of duplication.",
+			}),
+			Subject = e(Checkbox, {
+				Label = "Automatic ResizeAlign",
+				Checked = props.CurrentSettings.ResizeAlign,
+				Changed = function(checked: boolean)
+					props.CurrentSettings.ResizeAlign = checked
+					props.UpdatedSettings()
+				end,
 			}),
 			LayoutOrder = 2,
 		}),

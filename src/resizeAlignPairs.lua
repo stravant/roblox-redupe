@@ -8,6 +8,8 @@ local RESIZE_TAG = "RD_S"
 local WEDGE_TAG = "RD_W"
 local WEDGE_NAME_SUFFIX = "FillW"
 
+local MIN_ZFIGHT_AREA = 0.5
+
 --[[
 	The return value `t` is a number such that `r1o + t * r1d` is the point of
 	closest approach on the first ray between the two rays specified by the
@@ -121,7 +123,7 @@ local function getPartSizeIncludingSpecialMeshScale(part: Part): (Vector3, Vecto
 	end
 end
 
-local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3)
+local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, resultList: {Instance}?)
 	if not isCandidateForResizing(a, aBasis, axis) then
 		return
 	end
@@ -180,8 +182,19 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 
 	local aOriginalLength = (aSize * sizingAxis).Magnitude
 	local bOriginalLength = (b.Size * sizingAxis).Magnitude
-	local aDeltaLength = aBaseOuterLength - aOriginalLength * 0.5
-	local bDeltaLength = bBaseOuterLength - bOriginalLength * 0.5
+
+	local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
+	local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
+	
+	local offsetUnsigned = offsetPerpCorrectSide:Abs()
+	local mainOffset = math.max(offsetUnsigned.X, offsetUnsigned.Y, offsetUnsigned.Z)
+	local zFightAreaA = wedgeHeightA * mainOffset * 0.5
+	local zFightAreaB = wedgeHeightB * mainOffset * 0.5
+	local zFightArea = math.max(zFightAreaA, zFightAreaB)
+
+	local canCreateWedge = not directions:FuzzyEq(Vector3.zero) and zFightArea > MIN_ZFIGHT_AREA
+	local aDeltaLength = (canCreateWedge and aBaseOuterLength or aBaseInnerLength) - aOriginalLength * 0.5
+	local bDeltaLength = (canCreateWedge and bBaseOuterLength or bBaseInnerLength) - bOriginalLength * 0.5
 
 	-- Remove any fill wedges that were making this side of the model whole
 	-- before from a previous redupe operation. This will happen if you redupe
@@ -192,10 +205,7 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationA, a.Name .. WEDGE_NAME_SUFFIX)
 	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationB, b.Name .. WEDGE_NAME_SUFFIX)
 
-	if directions ~= Vector3.zero then
-		local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
-		local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
-
+	if directions ~= Vector3.zero and zFightArea > MIN_ZFIGHT_AREA then
 		local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSide)
 		local wedgeA = a:Clone()
 		wedgeA.Name ..= WEDGE_NAME_SUFFIX
@@ -211,6 +221,9 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		wedgeA.Size = wedgeA.CFrame:VectorToObjectSpace(aBasis.CFrame:VectorToWorldSpace(aSizeInBasis)):Abs()
 		wedgeA:AddTag(WEDGE_TAG)
 		wedgeA.Parent = a.Parent
+		if resultList then
+			table.insert(resultList, wedgeA)
+		end
 
 		local desiredZVectorForB = b.CFrame:VectorToWorldSpace(-offsetPerpCorrectSide)
 		local wedgeB = b:Clone()
@@ -227,6 +240,9 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		wedgeB.Size = wedgeB.CFrame:VectorToObjectSpace(bBasis.CFrame:VectorToWorldSpace(bSizeInBasis)):Abs()
 		wedgeB:AddTag(WEDGE_TAG)
 		wedgeB.Parent = b.Parent
+		if resultList then
+			table.insert(resultList, wedgeB)
+		end
 	end
 
 	a.Size += (sizingAxis * aDeltaLength) / aSizeScale
@@ -252,8 +268,8 @@ local function filterChildList(children: {Instance}): {Instance}
 	return filteredList
 end
 
-local function resizeAlignPairs(a: {Instance}, b: {Instance}, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3)
-	assert(#a == #b, "Mismatched number of instances to resize-align")
+local function resizeAlignPairsRecursive(a: {Instance}, b: {Instance}, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, resultList: {Instance}?)
+	assert(#a == #b, "Mismatched number of instances to resize-align recursive")
 	for i, itemA in a do
 		local itemB = b[i]
 		if itemA.ClassName ~= itemB.ClassName then
@@ -265,13 +281,24 @@ local function resizeAlignPairs(a: {Instance}, b: {Instance}, aBasis: ResizeAlig
 			continue
 		end
 		if itemA:IsA("BasePart") and itemB:IsA("BasePart") then
-			resizeAlignPair(itemA, itemB, aBasis, bBasis, axis)
+			resizeAlignPair(itemA, itemB, aBasis, bBasis, axis, resultList)
 		else
 			local childListA = filterChildList(itemA:GetChildren())
 			local childListB = filterChildList(itemB:GetChildren())
-			resizeAlignPairs(childListA, childListB, aBasis, bBasis, axis)
+			resizeAlignPairsRecursive(childListA, childListB, aBasis, bBasis, axis, nil)
 		end
 	end
+end
+
+local function resizeAlignPairs(a: {Instance}, b: {Instance}, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3): {{Instance}}
+	assert(#a == #b, "Mismatched number of instances to resize-align")
+	local allResults = {}
+	for i, item in a do
+		local resultsForItem = {}
+		resizeAlignPairsRecursive({a[i]}, {b[i]}, aBasis, bBasis, axis, resultsForItem)
+		allResults[i] = resultsForItem
+	end
+	return allResults
 end
 
 return resizeAlignPairs
