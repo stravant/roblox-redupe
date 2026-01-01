@@ -1,9 +1,8 @@
 Features
-* Support ResizeAligning model contents like Archimedes does.
 * Make it scrollable in the viewport as well?
 * Visual description of multiply snap by count
 * Somehow support extrude
 * Line up the pixels correctly
 
 Bugs
-* UIPath breaks event handling for containing ScrollingFrame
+* UIPath breaks event handling for containing ScrollingFrame (Can't repro with minimal example??)

@@ -23,6 +23,7 @@ local DraggerToolComponent = (require :: any)(DraggerFramework.DraggerTools.Drag
 local MoveHandles = require("./MoveHandles")
 local ScaleHandles = require("./ScaleHandles")
 local RotateHandles = require("./RotateHandles")
+local resizeAlignPairs = require("./resizeAlignPairs")
 
 local ROTATE_GRANULARITY_MULTIPLIER = 2
 
@@ -95,7 +96,7 @@ end
 
 export type SessionState = {
 	RelativeEndCFrame: CFrame,
-	EndSize: Vector3,
+	EndDeltaSize: Vector3,
 	EndDeltaPosition: Vector3,
 	PrimaryAxis: Vector3?,
 	Center: CFrame,
@@ -152,6 +153,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- Get the bounds
 	local info = DraggerSchemaCore.SelectionInfo.new(draggerContext, targets)
 	local center, boundsOffset, size = info:getLocalBoundingBox()
+	if previousState then
+		--size = previousState.EndSize
+	end
 
 	-- If we have a previous center, try to tween the camera by
 	-- the difference
@@ -529,13 +533,43 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			bendPlacement(placement, draggerContext.PrimaryAxis, currentSettings.Rotation, currentSettings.TouchSide, currentSettings.CopyPadding, currentSettings.CopySpacing)
 		end
 
+		local DO_RESIZALIGN = false
+
 		-- Place using offsets
 		local runningPosition = draggerContext.StartCFrame
 		local results = {}
-		for _, placement in placements do
+		for i, placement in placements do
+			local priorRunningPosition = runningPosition
 			runningPosition *= placement.Offset
 			table.insert(results, ghostPreview.create(not done, runningPosition, placement.Size))
-		
+
+			if DO_RESIZALIGN and done then
+				-- Do resizealigning. TODO: Decide when to try this or not.
+				local lastCopy = if i > 1 then results[#results - 1] else targets
+				local lastBasis;
+				if i > 1 then
+					local lastPlacement = placements[i - 1]
+					lastBasis = {
+						CFrame = priorRunningPosition,
+						Offset = boundsOffset,
+						Size = lastPlacement.Size,
+					}
+				else
+					lastBasis = {
+						CFrame = center,
+						Offset = boundsOffset,
+						Size = size,
+					}
+				end
+				local thisCopy = results[#results]
+				local thisInfo = {
+					CFrame = runningPosition,
+					Offset = boundsOffset,
+					Size = placement.Size,
+				}
+				resizeAlignPairs(lastCopy, thisCopy, lastBasis, thisInfo, draggerContext.PrimaryAxis)
+			end
+
 			if os.clock() > cutoffTime then
 				warn("Redupe: Too many copies being created, operation aborted to prevent hang.")
 				ghostPreview.trim()
@@ -633,7 +667,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						draggerContext.StartDragCFrame = draggerContext.EndCFrame
 
 						local count = getCopyCount()
-						if count then
+						if count and count > 1 then
 							local endOffset = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame)
 							local position = endOffset.Position
 							local onAxisPosition = draggerContext.PrimaryAxis * position
@@ -705,11 +739,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 	local recordingInProgress = ChangeHistoryService:TryBeginRecording("RedupeChanges", "Redupe Changes")
 
-	session.GetState = function()
+	session.GetState = function(): SessionState
 		return {
 			Center = center,
 			RelativeEndCFrame = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame),
-			EndSize = draggerContext.EndSize,
+			EndDeltaSize = draggerContext.EndSize - size,
 			EndDeltaPosition = draggerContext.EndDeltaPosition,
 			PrimaryAxis = draggerContext.PrimaryAxis,
 		}
@@ -781,7 +815,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- Restore previous state if requested
 	if previousState then
 		draggerContext.EndCFrame = draggerContext.StartCFrame * previousState.RelativeEndCFrame
-		draggerContext.EndSize = previousState.EndSize
+		draggerContext.EndSize = size + previousState.EndDeltaSize
 		draggerContext.EndDeltaPosition = previousState.EndDeltaPosition
 		draggerContext.PrimaryAxis = previousState.PrimaryAxis
 		session.Update()
