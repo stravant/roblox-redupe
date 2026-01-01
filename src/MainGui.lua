@@ -861,6 +861,7 @@ local function RotateModeImageChip(props: {
 		Image = props.Image,
 		ImageColor3 = if not props.IsCurrent and isHovered then WHITE:Lerp(BLACK, 0.3) else WHITE,
 		ImageRectOffset = props.ImageRectOffset,
+		ScaleType = Enum.ScaleType.Crop,
 		ImageRectSize = props.ImageRectSize,
 		LayoutOrder = props.LayoutOrder,
 		[React.Event.MouseButton1Click] = props.OnClick,
