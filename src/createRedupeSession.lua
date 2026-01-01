@@ -518,7 +518,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 		-- Convert positions to offsets and apply bending
 		for i, placement in placements do
-			if i > redundantLimit then
+			if i >= redundantLimit then
 				break
 			end
 			if i == 1 then
@@ -533,12 +533,15 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			bendPlacement(placement, draggerContext.PrimaryAxis, currentSettings.Rotation, currentSettings.TouchSide, currentSettings.CopyPadding, currentSettings.CopySpacing)
 		end
 
-		local DO_RESIZALIGN = false
+		local DO_RESIZALIGN = true
 
 		-- Place using offsets
 		local runningPosition = draggerContext.StartCFrame
 		local results = {}
 		for i, placement in placements do
+			if i >= redundantLimit then
+				break
+			end
 			local priorRunningPosition = runningPosition
 			runningPosition *= placement.Offset
 			table.insert(results, ghostPreview.create(not done, runningPosition, placement.Size))
