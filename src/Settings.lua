@@ -4,6 +4,7 @@ local kSettingsKey = "redupeState"
 export type RedupeSettings = {
 	WindowPosition: Vector2,
 	WindowAnchor: Vector2,
+	WindowHeightDelta: number,
 	CopyCount: number,
 	FinalCopyCount: number, -- Not saved, after redundancy is accounted for
 	CopySpacing: number,
@@ -45,6 +46,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
 		DoneTutorial = if raw.DoneTutorial ~= nil then raw.DoneTutorial else false,
 		ResizeAlign = if raw.ResizeAlign ~= nil then raw.ResizeAlign else true,
+		WindowHeightDelta = 0 --if raw.WindowHeightDelta ~= nil then raw.WindowHeightDelta else 0,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)
@@ -65,6 +67,7 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 		HaveHelp = settings.HaveHelp,
 		DoneTutorial = settings.DoneTutorial,
 		ResizeAlign = settings.ResizeAlign,
+		WindowHeightDelta = settings.WindowHeightDelta,
 	})
 end
 

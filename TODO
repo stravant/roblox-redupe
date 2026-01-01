@@ -1,5 +1,4 @@
 Features
-* Make it scrollable in the viewport as well?
 * Visual description of multiply snap by count
 * Somehow support extrude
 * Line up the pixels correctly
@@ -11,3 +10,4 @@ Features
 
 Bugs
 * UIPath breaks event handling for containing ScrollingFrame (Can't repro with minimal example??)
+* Resize + stale CanvasGroup chip results in missing content

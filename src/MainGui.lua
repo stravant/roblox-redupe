@@ -1225,7 +1225,11 @@ local function getMainWindowSize(context: Instance): Vector2
 end
 
 local function createBeginDragFunction(settings: Settings.RedupeSettings, updatedSettings: () -> ())
-	return function(instance, x, y)
+	return function(instance, inputObject: InputObject)
+		if inputObject.UserInputState ~= Enum.UserInputState.Begin then
+			return
+		end
+
 		local startMouseLocation = UserInputService:GetMouseLocation()
 		local viewSize = getViewSize()
 		local windowSize = getMainWindowSize(instance)
@@ -1260,13 +1264,10 @@ local function SessionView(props: {
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
+	OnSizeChanged: (Vector2) -> ()?,
 }): React.ReactNode
-	local beginDrag = if props.Panelized
-		then nil
-		else createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
 	local nextOrder = createNextOrder()
-
-	local content = {
+	local content: {[string]: React.ReactNode} = {
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 8),
 		}),
@@ -1278,10 +1279,10 @@ local function SessionView(props: {
 		Padding = props.Panelized and e("UIPadding", {
 			PaddingBottom = UDim.new(0, 40),
 		}),
-		TopInfoRow = e(SessionTopInfoRow, {
+		TopInfoRow = props.Panelized and e(SessionTopInfoRow, {
 			LayoutOrder = nextOrder(),
 			ShowHelpToggle = true,
-			Panelized = props.Panelized,
+			Panelized = true,
 			HandleAction = props.HandleAction,
 		}),
 		OperationPanel = e(OperationPanel, {
@@ -1308,22 +1309,16 @@ local function SessionView(props: {
 		}),
 	}
 
-	if props.Panelized then
-		return e("Frame", {
-			Size = UDim2.new(1, 0, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundColor3 = BLACK,
-		}, content)
-	else
-		return e("ImageButton", {
-			Image = "",
-			AutoButtonColor = false,
-			Size = UDim2.new(0, 240, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundColor3 = BLACK,
-			[React.Event.MouseButton1Down] = beginDrag,
-		}, content)
-	end
+	return e("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		[React.Change.AbsoluteSize] = function(rbx: Frame)
+			if props.OnSizeChanged then
+				props.OnSizeChanged(rbx.AbsoluteSize)
+			end
+		end,
+	}, content)
 end
 
 local function EmptySessionView(props: {
@@ -1332,7 +1327,9 @@ local function EmptySessionView(props: {
 	HandleAction: (string) -> (),
 	Panelized: boolean,
 })
-	local beginDrag = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
+	local beginDrag = if not props.Panelized then
+		createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
+		else nil
 
 	return e("ImageButton", {
 		Image = "",
@@ -1340,7 +1337,7 @@ local function EmptySessionView(props: {
 		Size = UDim2.new(0, 240, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-		[React.Event.MouseButton1Down] = beginDrag,
+		[React.Event.InputBegan] = beginDrag,
 	}, {
 		Corner = e("UICorner", {
 			CornerRadius = UDim.new(0, 8),
@@ -1377,6 +1374,120 @@ local function EmptySessionView(props: {
 	})
 end
 
+local function createBeginResizeFunction(settings: Settings.RedupeSettings, updatedSettings: () -> ())
+	return function(instance, x, y)
+		local startMouseLocation = UserInputService:GetMouseLocation()
+		local startWindowSizeDelta = settings.WindowHeightDelta
+		local startWindowPosition = settings.WindowPosition
+
+		task.spawn(function()
+			local previousDelta = Vector2.new()
+			while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+				local newMouseLocation = UserInputService:GetMouseLocation()
+				local delta = newMouseLocation - startMouseLocation
+				if delta ~= previousDelta then
+					previousDelta = delta
+					settings.WindowHeightDelta = math.min(0, startWindowSizeDelta + delta.Y)
+					if settings.WindowAnchor.Y == 1 then
+						-- If anchored to bottom, need to move position up as we grow
+						settings.WindowPosition = startWindowPosition + Vector2.new(0, delta.Y)
+					end
+					updatedSettings()
+				end
+				task.wait()
+			end
+		end)
+	end
+end
+
+local function ScrollableSessionView(props: {
+	CanPlace: boolean,
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	HandleAction: (string) -> (),
+	Panelized: boolean,
+}): React.ReactNode
+	local dragFunction = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
+	local currentDisplaySize, setCurrentDisplaySize = React.useState(300)
+	local HEADER_SIZE_EXTRA = 36
+	return e("ImageButton", {
+		Size = UDim2.new(1, 0, 0, currentDisplaySize + props.CurrentSettings.WindowHeightDelta),
+		BackgroundTransparency = 0,
+		BackgroundColor3 = BLACK,
+		AutoButtonColor = false,
+		Image = "",
+		[React.Event.InputBegan] = dragFunction,
+	}, {
+		OrderedLayer = e("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+		}, {
+			ListLayout = e("UIListLayout", {
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}),
+			Header = e(SessionTopInfoRow, {
+				LayoutOrder = 1,
+				ShowHelpToggle = not props.Panelized,
+				HandleAction = props.HandleAction,
+				Panelized = props.Panelized,
+			}),
+			Scroll = e("ScrollingFrame", {
+				Size = UDim2.new(1, 0, 0, 0),
+				CanvasSize = UDim2.fromScale(1, 0),
+				BorderSizePixel = 0,
+				BackgroundTransparency = 1,
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				ScrollBarThickness = 0,
+				LayoutOrder = 2,
+			}, {
+				Flex = e("UIFlexItem", {
+					FlexMode = Enum.UIFlexMode.Grow,
+				}),
+				Content = e(SessionView, {
+					CanPlace = props.CanPlace,
+					CurrentSettings = props.CurrentSettings,
+					UpdatedSettings = props.UpdatedSettings,
+					HandleAction = props.HandleAction,
+					Panelized = props.Panelized,
+					OnSizeChanged = function(newSize: Vector2)
+						setCurrentDisplaySize(newSize.Y + HEADER_SIZE_EXTRA)
+					end,
+				}),
+			}),
+		}),
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 8),
+		}),
+		ResizeWidget = e("TextButton", {
+			Size = UDim2.fromOffset(32, 10),
+			Position = UDim2.new(0.5, 0, 1, -3),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
+			Text = "",
+			BackgroundColor3 = BLACK,
+			AutoButtonColor = false,
+			LayoutOrder = 3,
+			ZIndex = 2,
+			[React.Event.MouseButton1Down] = createBeginResizeFunction(
+				props.CurrentSettings,
+				props.UpdatedSettings
+			),
+		}, {
+			Corner = e("UICorner", {
+				CornerRadius = UDim.new(0, 4),
+			}),
+			Line = e("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Size = UDim2.new(1, -8, 0, 2),
+				Position = UDim2.fromScale(0.5, 0.5),
+				BackgroundColor3 = Color3.new(0.8, 0.8, 0.8),
+				BorderSizePixel = 0,
+			}),
+		}),
+	})
+end
+
 local function MainGuiViewport(props: {
 	HasSession: boolean,
 	CanPlace: boolean,
@@ -1402,7 +1513,7 @@ local function MainGuiViewport(props: {
 		[React.Tag] = "MainWindow",
 	}, {
 		Content = if props.HasSession
-			then e(SessionView, {
+			then e(ScrollableSessionView, {
 				CanPlace = props.CanPlace,
 				CurrentSettings = props.CurrentSettings,
 				UpdatedSettings = props.UpdatedSettings,
