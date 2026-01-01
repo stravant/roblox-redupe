@@ -262,7 +262,6 @@ local function filterChildList(children: {Instance}): {Instance}
 		if ch:HasTag(WEDGE_TAG) then
 			continue
 		end
-		-- TODO: Filter out generated wedges
 		table.insert(filteredList, ch)
 	end
 	return filteredList

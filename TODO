@@ -4,6 +4,7 @@ Features
 * Somehow support extrude
 * Line up the pixels correctly
 * Figure out how to move Rotation back from settings to draggerContext
+* Don't use wedges for ResizeAlign when angle is modulo 90
 
 Bugs
 * UIPath breaks event handling for containing ScrollingFrame (Can't repro with minimal example??)
