@@ -153,31 +153,35 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	local zDir = relativeOffset.ZVector:Dot(axis * localSign)
 	local directions = Vector3.new(approxSign(xDir), approxSign(yDir), approxSign(zDir))
 	local sizingPerpDirections = a.CFrame:VectorToObjectSpace(aBasis.CFrame:VectorToWorldSpace(directions))	
-	local offsetPerpCorrectSide = sizingPerpToAxis * sizingPerpDirections * aSize * 0.5
+	local offsetPerpCorrectSideA = sizingPerpToAxis * sizingPerpDirections * aSize * 0.5
+	local offsetPerpCorrectSideB = sizingPerpToAxis * sizingPerpDirections * bSize * 0.5
+	if not offsetPerpCorrectSideA:FuzzyEq(offsetPerpCorrectSideB) then
+		-- Not interested in weird asymmetric fills here
+		-- We could do something here but since we're doing each resize-align pairwise
+		-- only without an overarching plan, this case will oscillate between
+		-- different kinds of fill with when called multiple times for different
+		-- sized things along the duplication path giving a bad feel.
+		return
+	end
 
-	local aBaseOuterLength, bBaseOuterLength;
-	local aBaseInnerLength, bBaseInnerLength;
+	-- If the two objects are exactly overlapping we can't determine which side
+	-- the rotation was towards.
 	if directions == Vector3.zero then
-		-- Take mid point between parts
-		aBaseOuterLength = relativeOffset:Dot(axis) * 0.5
-		bBaseOuterLength = aBaseOuterLength
-		aBaseInnerLength = aBaseOuterLength
-		bBaseInnerLength = aBaseInnerLength
-	else
-		-- Do intersection
-		local alignOuterPointA = a.CFrame:PointToWorldSpace(-offsetPerpCorrectSide)
-		local alignOuterPointB = b.CFrame:PointToWorldSpace(-offsetPerpCorrectSide)
-		local alignInnerPointA = a.CFrame:PointToWorldSpace(offsetPerpCorrectSide)
-		local alignInnerPointB = b.CFrame:PointToWorldSpace(offsetPerpCorrectSide)
-		local good1, good2, good3, good4;
-		good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
-		good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
-		good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
-		good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
-		if not good1 or not good2 or not good3 or not good4 then
-			warn("Failed to intersect rays for resize-align?")
-			return
-		end
+		return
+	end
+
+	-- Do intersection
+	local alignOuterPointA = a.CFrame:PointToWorldSpace(-offsetPerpCorrectSideA)
+	local alignOuterPointB = b.CFrame:PointToWorldSpace(-offsetPerpCorrectSideB)
+	local alignInnerPointA = a.CFrame:PointToWorldSpace(offsetPerpCorrectSideA)
+	local alignInnerPointB = b.CFrame:PointToWorldSpace(offsetPerpCorrectSideB)
+	local good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
+	local good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
+	local good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
+	local good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
+	if not good1 or not good2 or not good3 or not good4 then
+		warn("Failed to intersect rays for resize-align?")
+		return
 	end
 
 	local aOriginalLength = (aSize * sizingAxis).Magnitude
@@ -185,8 +189,9 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 
 	local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
 	local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
-	
-	local offsetUnsigned = offsetPerpCorrectSide:Abs()
+	assert(wedgeHeightA >= 0 and wedgeHeightB >= 0, "Wedge heights should be non-negative")
+
+	local offsetUnsigned = offsetPerpCorrectSideA:Abs()
 	local mainOffset = math.max(offsetUnsigned.X, offsetUnsigned.Y, offsetUnsigned.Z)
 	local zFightAreaA = wedgeHeightA * mainOffset * 0.5
 	local zFightAreaB = wedgeHeightB * mainOffset * 0.5
@@ -205,8 +210,8 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationA, a.Name .. WEDGE_NAME_SUFFIX)
 	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationB, b.Name .. WEDGE_NAME_SUFFIX)
 
-	if directions ~= Vector3.zero and zFightArea > MIN_ZFIGHT_AREA then
-		local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSide)
+	if canCreateWedge then
+		local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideA)
 		local wedgeA = a:Clone()
 		wedgeA.Name ..= WEDGE_NAME_SUFFIX
 		wedgeA.Shape = Enum.PartType.Wedge
@@ -225,7 +230,7 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 			table.insert(resultList, wedgeA)
 		end
 
-		local desiredZVectorForB = b.CFrame:VectorToWorldSpace(-offsetPerpCorrectSide)
+		local desiredZVectorForB = b.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideB)
 		local wedgeB = b:Clone()
 		wedgeB.Name ..= WEDGE_NAME_SUFFIX
 		wedgeB.Shape = Enum.PartType.Wedge
@@ -245,12 +250,23 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		end
 	end
 
-	a.Size += (sizingAxis * aDeltaLength) / aSizeScale
-	b.Size += (sizingAxis * bDeltaLength) / bSizeScale
-	a.CFrame += aWorldAxis * aDeltaLength * 0.5
-	b.CFrame -= bWorldAxis * bDeltaLength * 0.5
-	a:AddTag(RESIZE_TAG)
-	b:AddTag(RESIZE_TAG)
+	local aNewSize = a.Size + (sizingAxis * aDeltaLength) / aSizeScale
+	if aNewSize:Dot(sizingAxis) <= 0.001 then
+		a.Parent = nil
+	else
+		a.Size = aNewSize
+		a.CFrame += aWorldAxis * aDeltaLength * 0.5
+		a:AddTag(RESIZE_TAG)
+	end
+
+	local bNewSize = b.Size + (sizingAxis * bDeltaLength) / bSizeScale
+	if bNewSize:Dot(sizingAxis) <= 0.001 then
+		b.Parent = nil
+	else
+		b.Size = bNewSize
+		b.CFrame -= bWorldAxis * bDeltaLength * 0.5
+		b:AddTag(RESIZE_TAG)
+	end
 end
 
 local function filterChildList(children: {Instance}): {Instance}
