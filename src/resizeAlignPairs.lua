@@ -27,12 +27,50 @@ local function intersectRayRay(r1o, r1d, r2o, r2d)
 	end
 end
 
-local function isCandidateForResizing(a: Part, aBasis: ResizeAlignInfo): boolean
-	-- TODO: Is rotation module 90 degrees?
+local function isRotationWorldAlignedModulo90Degrees(cframe: CFrame): boolean
+	local x = cframe.XVector:Abs()
+	local y = cframe.YVector:Abs()
+	local z = cframe.ZVector:Abs()
+	if math.abs(x.X + x.Y + x.Z - 1) > 0.001 then
+		return false
+	end
+	if math.abs(y.X + y.Y + y.Z - 1) > 0.001 then
+		return false
+	end
+	if math.abs(z.X + z.Y + z.Z - 1) > 0.001 then
+		return false
+	end
+	return true
+end
+
+local function isCandidateForResizing(a: Part, aBasis: ResizeAlignInfo, axis: Vector3): boolean
+	local cframeInBasis = aBasis.CFrame:ToObjectSpace(a.CFrame)
+	if not isRotationWorldAlignedModulo90Degrees(cframeInBasis) then
+		return false
+	end
+
+	-- Already resized once, always allow even if it doesn't exactly span the
+	-- bounds along the axis anymore.
 	if a:HasTag(RESIZE_TAG) then
 		return true
 	end
-	-- TODO: Check for matching edges of bounds
+
+	-- Check that the part exactly spans the bounds along the axis.
+
+	-- Size must match
+	local sizeInBasis = aBasis.CFrame:VectorToObjectSpace(a.CFrame:VectorToWorldSpace(a.Size)):Abs()
+	local size = sizeInBasis:Dot(axis)
+	if math.abs(size - aBasis.Size:Dot(axis)) > 0.01 then -- Deliberately a bit loose of an epsilon here
+		return false
+	end
+
+	-- Position must be centered
+	local positionInBounds = cframeInBasis.Position - aBasis.Offset
+	local position = positionInBounds:Dot(axis)
+	if math.abs(position) > 0.01 then
+		return false
+	end
+
 	return true
 end
 
@@ -84,7 +122,7 @@ local function getPartSizeIncludingSpecialMeshScale(part: Part): (Vector3, Vecto
 end
 
 local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3)
-	if not isCandidateForResizing(a, aBasis) then
+	if not isCandidateForResizing(a, aBasis, axis) then
 		return
 	end
 
@@ -155,7 +193,8 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationB, b.Name .. WEDGE_NAME_SUFFIX)
 
 	if directions ~= Vector3.zero then
-		local wedgeHeight = aBaseInnerLength - aBaseOuterLength
+		local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
+		local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
 
 		local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSide)
 		local wedgeA = a:Clone()
@@ -163,12 +202,12 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		wedgeA.Shape = Enum.PartType.Wedge
 		wedgeA:ClearAllChildren()
 		wedgeA.CFrame = CFrame.fromMatrix(
-			a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeight * 0.5),
+			a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeightA * 0.5),
 			closestUnitVector(a.CFrame, desiredZVectorForA):Cross(aWorldAxis),
 			aWorldAxis
 		) + aWorldVisualOffset
 		local aPerSizeInBasis = aBasis.CFrame:VectorToObjectSpace(a.CFrame:VectorToWorldSpace(sizingPerpToAxis * aSize))
-		local aSizeInBasis = axis * wedgeHeight + aPerSizeInBasis
+		local aSizeInBasis = axis * wedgeHeightA + aPerSizeInBasis
 		wedgeA.Size = wedgeA.CFrame:VectorToObjectSpace(aBasis.CFrame:VectorToWorldSpace(aSizeInBasis)):Abs()
 		wedgeA:AddTag(WEDGE_TAG)
 		wedgeA.Parent = a.Parent
@@ -179,12 +218,12 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		wedgeB.Shape = Enum.PartType.Wedge
 		wedgeB:ClearAllChildren()
 		wedgeB.CFrame = CFrame.fromMatrix(
-			b.Position - bWorldAxis * (bBaseOuterLength + wedgeHeight * 0.5),
+			b.Position - bWorldAxis * (bBaseOuterLength + wedgeHeightB * 0.5),
 			-closestUnitVector(b.CFrame, desiredZVectorForB):Cross(bWorldAxis),
 			-bWorldAxis
 		) + bWorldVisualOffset
 		local bPerSizeInBasis = bBasis.CFrame:VectorToObjectSpace(b.CFrame:VectorToWorldSpace(sizingPerpToAxis * bSize))
-		local bSizeInBasis = axis * wedgeHeight + bPerSizeInBasis
+		local bSizeInBasis = axis * wedgeHeightB + bPerSizeInBasis
 		wedgeB.Size = wedgeB.CFrame:VectorToObjectSpace(bBasis.CFrame:VectorToWorldSpace(bSizeInBasis)):Abs()
 		wedgeB:AddTag(WEDGE_TAG)
 		wedgeB.Parent = b.Parent

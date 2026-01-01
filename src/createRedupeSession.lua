@@ -100,6 +100,7 @@ export type SessionState = {
 	EndDeltaPosition: Vector3,
 	PrimaryAxis: Vector3?,
 	Center: CFrame,
+	FinalCenter: CFrame?,
 }
 
 -- Really messy, could be cleaned up a lot.
@@ -470,7 +471,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		return math.huge
 	end
 
-	local function updatePlacement(done: boolean): {{ Instance }}?
+	local function updatePlacement(done: boolean): ({{ Instance }}?, CFrame?)
 		ghostPreview.hide()
 
 		updatePrimaryAxisDisplay()
@@ -586,7 +587,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		draggerContext.SnapMultiplier = copyCount - 1
 		currentSettings.CopyCount = copyCount
 		currentSettings.FinalCopyCount = math.min(copyCount, redundantLimit)
-		return results
+		return results, runningPosition
 	end
 
 	-- Schema
@@ -742,9 +743,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 	local recordingInProgress = ChangeHistoryService:TryBeginRecording("RedupeChanges", "Redupe Changes")
 
-	session.GetState = function(): SessionState
+	session.GetState = function(finalPosition: CFrame?): SessionState
 		return {
 			Center = center,
+			FinalCenter = finalPosition,
 			RelativeEndCFrame = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame),
 			EndDeltaSize = draggerContext.EndSize - size,
 			EndDeltaPosition = draggerContext.EndDeltaPosition,
@@ -772,12 +774,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		rotatedAxisDisplay:Destroy()
 	end
 	session.Commit = function(groupResults: boolean)
-		local finalResults = updatePlacement(true)
+		local finalResults, finalPosition = updatePlacement(true)
 		if not finalResults then
 			-- Nothing objects placed
 			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
 			recordingInProgress = nil
-			return session.GetState()
+			return session.GetState(nil)
 		end
 
 		-- Put results into containers if needed
@@ -802,7 +804,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		end
 		primaryAxisDisplay:Destroy()
 		rotatedAxisDisplay:Destroy()
-		return session.GetState()
+		return session.GetState(finalPosition)
 	end
 	session.Update = function()
 		draggerContext.UseSnapSize = currentSettings.UseSpacing
@@ -817,6 +819,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 	-- Restore previous state if requested
 	if previousState then
+		-- Make stamping models which may change size due to ResizeAligning work
+		if previousState.FinalCenter and
+			previousState.EndDeltaSize == Vector3.zero and
+			previousState.EndDeltaPosition == Vector3.zero then
+			draggerContext.StartCFrame = previousState.FinalCenter:Orthonormalize()
+		end
 		draggerContext.EndCFrame = draggerContext.StartCFrame * previousState.RelativeEndCFrame
 		draggerContext.EndSize = size + previousState.EndDeltaSize
 		draggerContext.EndDeltaPosition = previousState.EndDeltaPosition
