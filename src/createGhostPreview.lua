@@ -142,9 +142,9 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, offset:
 	local function create(isPreview: boolean, targetCFrame: CFrame, targetSize: Vector3): { Instance }
 		local scale = getScale(size, targetSize)
 		local itemToSpawn = getItem(isPreview)
-		for i, target in targets do
+		for i, clonedTarget in clonedTargets do
 			local item = itemToSpawn.instances[i]
-			adjustItemRecursive(item, target, scale, targetCFrame, targetSize)
+			adjustItemRecursive(item, clonedTarget, scale, targetCFrame, targetSize)
 		end
 		-- Non-preview is permanent, don't need them in the placed list
 		if isPreview then
