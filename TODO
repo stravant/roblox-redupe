@@ -1,3 +1,6 @@
+Prio Features
+* Allow specifying a random amount of offset per axis
+
 Features
 * Visual description of multiply snap by count
 * Somehow support extrude
