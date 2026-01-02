@@ -1,17 +1,18 @@
-
 --!strict
-
-local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 
 local Plugin = script.Parent.Parent
 local Packages = Plugin.Packages
-
-local Settings = require(script.Parent.Settings)
 local React = require(Packages.React)
 
-local HelpGui = require(script.Parent.HelpGui)
-local TutorialGui = require(script.Parent.TutorialGui)
+local Colors = require("./PluginGui/Colors")
+local Settings = require("./Settings")
+local HelpGui = require("./PluginGui/HelpGui")
+local TutorialGui = require("./TutorialGui")
+local SubPanel = require("./PluginGui/SubPanel")
+local ChipForToggle = require("./PluginGui/ChipForToggle")
+local NumberInput = require("./PluginGui/NumberInput")
+local Checkbox = require("./PluginGui/Checkbox")
 
 local e = React.createElement
 
@@ -21,207 +22,6 @@ local function createNextOrder()
 		order += 1
 		return order
 	end
-end
-
--- Shim to correct for LPS not knowing about Path2DControlPoint
-type Path2DControlPoint = {
-	new: (udimPos: UDim2, inTangent: UDim2?, outTangent: UDim2?) -> Path2DControlPoint,
-}
-local Path2DControlPoint = Path2DControlPoint
-
-local BLACK = Color3.fromRGB(0, 0, 0)
-local GREY = Color3.fromRGB(38, 38, 38)
-local DISABLED_GREY = Color3.fromRGB(72, 72, 72)
-local WHITE = Color3.fromRGB(255, 255, 255)
-local OFFWHITE = Color3.new(0.8, 0.8, 0.8)
-local DARK_RED = Color3.new(0.705882, 0, 0)
-local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
-
-local function _GoodSubPanel(props: {
-	Title: string,
-	Padding: UDim?,
-	LayoutOrder: number?,
-	children: React.ReactElement<any>?,
-})
-	local outlineRef = React.useRef(nil)
-
-	local TITLE_PADDING = 2
-	local INSET = 6
-	local ROOTINSET = INSET / math.sqrt(2)
-	local TITLE_SIZE = 2 * INSET + 2
-
-	React.useEffect(function()
-		local outline = outlineRef.current
-		if outline then
-			local titleLength = TextService:GetTextSize(
-				props.Title,
-				TITLE_SIZE,
-				Enum.Font.SourceSansBold,
-				Vector2.new(1000, 1000)
-			).X
-			local titleLengthPlusPadding = titleLength + TITLE_PADDING * 2
-
-			outline:InsertControlPoint(1, Path2DControlPoint.new(
-				UDim2.new(0, 2 * INSET, 0, INSET),
-				UDim2.fromOffset(0, 0),
-				UDim2.fromOffset(-ROOTINSET, 0)
-			))
-			outline:InsertControlPoint(2, Path2DControlPoint.new(
-				UDim2.new(0, INSET, 0, 2 * INSET),
-				UDim2.fromOffset(0, -ROOTINSET),
-				UDim2.fromOffset(0, 0)
-			))
-			outline:InsertControlPoint(3, Path2DControlPoint.new(
-				UDim2.new(0, INSET, 1, -2 * INSET),
-				UDim2.fromOffset(0, 0),
-				UDim2.fromOffset(0, ROOTINSET)
-			))
-			outline:InsertControlPoint(4, Path2DControlPoint.new(
-				UDim2.new(0, 2 * INSET, 1, -INSET),
-				UDim2.fromOffset(-ROOTINSET, 0),
-				UDim2.fromOffset(0, 0)
-			))
-			outline:InsertControlPoint(5, Path2DControlPoint.new(
-				UDim2.new(1, -2 * INSET, 1, -INSET),
-				UDim2.fromOffset(0, 0),
-				UDim2.fromOffset(ROOTINSET, 0)
-			))
-			outline:InsertControlPoint(6, Path2DControlPoint.new(
-				UDim2.new(1, -INSET, 1, -2 * INSET),
-				UDim2.fromOffset(0, ROOTINSET),
-				UDim2.fromOffset(0, 0)
-			))
-			outline:InsertControlPoint(7, Path2DControlPoint.new(
-				UDim2.new(1, -INSET, 0, 2 * INSET),
-				UDim2.fromOffset(0, 0),
-				UDim2.fromOffset(0, -ROOTINSET)
-			))
-			outline:InsertControlPoint(8, Path2DControlPoint.new(
-				UDim2.new(1, -2 * INSET, 0, INSET),
-				UDim2.fromOffset(ROOTINSET, 0),
-				UDim2.fromOffset(0, 0)
-			))
-			outline:InsertControlPoint(9, Path2DControlPoint.new(
-				UDim2.new(0, titleLengthPlusPadding + 2 * INSET, 0, INSET),
-				UDim2.fromOffset(0, 0),
-				UDim2.fromOffset(0, 0)
-			))
-		end
-		return function()
-			if outline then
-				outline:SetControlPoints({})
-			end
-		end
-	end, {})
-
-	local content = table.clone(props.children or {})
-	content.ListLayout = e("UIListLayout", {
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = props.Padding,
-	})
-
-	return e("Frame", {
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		LayoutOrder = props.LayoutOrder,
-		BackgroundTransparency = 1,
-	}, {
-		Outline = e("Path2D", {
-			Thickness = 2,
-			Color3 = WHITE,
-			ref = outlineRef,
-		}),
-		TitleLabel = e("TextLabel", {
-			Size = UDim2.fromScale(1, 0),
-			Position = UDim2.fromOffset(INSET * 2, -3),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			TextColor3 = WHITE,
-			Text = props.Title,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Font = Enum.Font.SourceSansBold,
-			TextSize = TITLE_SIZE,
-		}, {
-			Padding = e("UIPadding", {
-				PaddingLeft = UDim.new(0, TITLE_PADDING),
-			}),
-		}),
-		Content = e("Frame", {
-			Position = UDim2.fromOffset(INSET * 2, INSET * 2),
-			Size = UDim2.new(1, -(INSET * 4), 0, 0),
-			BackgroundTransparency = 1,
-			AutomaticSize = Enum.AutomaticSize.Y,
-		}, content),
-		Padding = e("UIPadding", {
-			PaddingBottom = UDim.new(0, INSET * 2),
-		}),
-	})
-end
-
-local function SubPanel(props: {
-	Title: string,
-	Padding: UDim?,
-	LayoutOrder: number?,
-	children: React.ReactElement<any>?,
-})
-	local TITLE_PADDING = 2
-	local INSET = 6
-	local TITLE_SIZE = 2 * INSET + 2
-
-	local content = table.clone(props.children or {})
-	content.ListLayout = e("UIListLayout", {
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = props.Padding,
-	})
-
-	return e("Frame", {
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		LayoutOrder = props.LayoutOrder,
-		BackgroundTransparency = 1,
-	}, {
-		TitleLabel = e("TextLabel", {
-			Size = UDim2.fromScale(0, 0),
-			Position = UDim2.fromOffset(INSET * 2, -3),
-			AutomaticSize = Enum.AutomaticSize.XY,
-			BorderSizePixel = 0,
-			BackgroundColor3 = BLACK,
-			TextColor3 = WHITE,
-			Text = props.Title,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Font = Enum.Font.SourceSansBold,
-			TextSize = TITLE_SIZE,
-			ZIndex = 2,
-		}, {
-			Padding = e("UIPadding", {
-				PaddingLeft = UDim.new(0, TITLE_PADDING),
-				PaddingRight = UDim.new(0, TITLE_PADDING),
-			}),
-		}),
-		BorderHolder = e("Frame", {
-			Position = UDim2.fromOffset(INSET, INSET),
-			Size = UDim2.new(1, -(INSET * 2), 1, 0),
-			BackgroundTransparency = 1,
-		}, {
-			Corner = e("UICorner", {
-				CornerRadius = UDim.new(0, 5),
-			}),
-			Stroke = e("UIStroke", {
-				Color = WHITE,
-				BorderOffset = UDim.new(0, -1),
-				Thickness = 1.6,
-			}),
-		}),
-		Content = e("Frame", {
-			Position = UDim2.fromOffset(INSET * 2, INSET * 2),
-			Size = UDim2.new(1, -(INSET * 4), 0, 0),
-			BackgroundTransparency = 1,
-			AutomaticSize = Enum.AutomaticSize.Y,
-		}, content),
-		Padding = e("UIPadding", {
-			PaddingBottom = UDim.new(0, INSET * 2),
-		}),
-	})
 end
 
 local function OperationButton(props: {
@@ -237,11 +37,11 @@ local function OperationButton(props: {
 		string.format('%s\n<i><font size="12" color="#FFF">%s</font></i>', props.Text, props.SubText)
 	else
 		props.Text
-	local color = if props.Disabled then props.Color:Lerp(DISABLED_GREY, 0.5) else props.Color
+	local color = if props.Disabled then props.Color:Lerp(Colors.DISABLED_GREY, 0.5) else props.Color
 
 	return e("TextButton", {
 		BackgroundColor3 = color,
-		TextColor3 = if props.Disabled then WHITE:Lerp(DISABLED_GREY, 0.5) else WHITE,
+		TextColor3 = if props.Disabled then Colors.WHITE:Lerp(Colors.DISABLED_GREY, 0.5) else Colors.WHITE,
 		Text = text,
 		RichText = true,
 		Size = UDim2.new(1, 0, 0, props.Height),
@@ -300,7 +100,7 @@ local function OperationPanel(props: {
 						Text = if props.CanPlace then `PLACE [{props.CopyCount}] COPIES` else "PLACE & EXIT",
 						SubText = not props.CanPlace and "(Drag to add copies first)" or nil,
 						Disabled = not props.CanPlace,
-						Color = ACTION_BLUE,
+						Color = Colors.ACTION_BLUE,
 						Height = 34,
 						OnClick = function()
 							props.HandleAction("done")
@@ -316,7 +116,7 @@ local function OperationPanel(props: {
 						Text = "STAMP & REPEAT",
 						SubText = (props.CanPlace and not canRepeat) and "(Only with grouping: None)" or nil,
 						Disabled = not canRepeat,
-						Color = ACTION_BLUE,
+						Color = Colors.ACTION_BLUE,
 						Height = 34,
 						OnClick = function()
 							props.HandleAction("stamp")
@@ -340,7 +140,7 @@ local function OperationPanel(props: {
 				}),
 				CancelButton = e(OperationButton, {
 					Text = "EXIT",
-					Color = DARK_RED,
+					Color = Colors.DARK_RED,
 					Disabled = false,
 					Height = 34,
 					OnClick = function()
@@ -350,7 +150,7 @@ local function OperationPanel(props: {
 				}),
 				ResetButton = e(OperationButton, {
 					Text = "RESET",
-					Color = DARK_RED,
+					Color = Colors.DARK_RED,
 					Disabled = not props.CanPlace,
 					Height = 34,
 					OnClick = function()
@@ -359,76 +159,6 @@ local function OperationPanel(props: {
 					LayoutOrder = 2,
 				}),
 			}),
-		}),
-	})
-end
-
-local function ChipWithOutline(props: {
-	Text: string,
-	LayoutOrder: number?,
-	TextColor3: Color3,
-	Bolded: boolean,
-	BorderColor3: Color3,
-	BorderSize: number?,
-	ZIndex: number?,
-	BackgroundColor3: Color3,
-	OnClick: () -> (),
-	children: any,
-})
-	local children = {
-		Border = props.BorderSize and e("UIStroke", {
-			Color = props.BorderColor3,
-			Thickness = props.BorderSize,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			BorderStrokePosition = Enum.BorderStrokePosition.Center,
-		}),
-		Corner = e("UICorner", {
-			CornerRadius = UDim.new(0, 4),
-		}),
-		Padding = e("UIPadding", {
-			PaddingLeft = UDim.new(0, 12),
-			PaddingRight = UDim.new(0, 12),
-		}),
-	}
-	for key, child in props.children or {} do
-		children[key] = child
-	end
-
-	return e("TextButton", {
-		Size = UDim2.new(0, 0, 0, 24),
-		BackgroundColor3 = props.BackgroundColor3,
-		TextColor3 = props.TextColor3,
-		RichText = true,
-		ZIndex = props.ZIndex,
-		Text = props.Text,
-		Font = if props.Bolded then Enum.Font.SourceSansBold else Enum.Font.SourceSans,
-		TextSize = if props.Bolded then 20 else 18,
-		AutoButtonColor = not props.Bolded,
-		LayoutOrder = props.LayoutOrder,
-		[React.Event.MouseButton1Click] = props.OnClick,
-	}, children)
-end
-
-local function ChipForToggle(props: {
-	Text: string,
-	LayoutOrder: number?,
-	IsCurrent: boolean,
-	OnClick: () -> (),
-})
-	local isCurrent = props.IsCurrent
-	return e(ChipWithOutline, {
-		Text = props.Text,
-		TextColor3 = WHITE,
-		BorderColor3 = WHITE,
-		BorderSize = if isCurrent then 2 else nil,
-		Bolded = isCurrent,
-		BackgroundColor3 = ACTION_BLUE,
-		LayoutOrder = props.LayoutOrder,
-		ZIndex = if isCurrent then 2 else 1,
-		OnClick = props.OnClick,
-	}, {
-		Flex = e("UIFlexItem", {
-			FlexMode = Enum.UIFlexMode.Grow,
 		}),
 	})
 end
@@ -444,7 +174,7 @@ local function SpacingOrCountToggle(props: {
 	return e("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
 		BorderSizePixel = 0,
-		BackgroundColor3 = ACTION_BLUE,
+		BackgroundColor3 = Colors.ACTION_BLUE,
 		AutomaticSize = Enum.AutomaticSize.Y,
 	}, {
 		ListLayout = e("UIListLayout", {
@@ -476,208 +206,7 @@ local function SpacingOrCountToggle(props: {
 	})
 end
 
-local function InterpretValue(input: string): number?
-	-- Implicit divide by 360
-	if input:sub(1, 1) == "/" then
-		input = "360" .. input
-	end
-	local fragment, _err = loadstring("return " .. input)
-	if fragment then
-		local success, result = pcall(fragment)
-		if success and typeof(result) == "number" then
-			return result
-		end
-	end
-	return nil
-end
 
-local function NumberInput(props: {
-	Label: string?,
-	Value: number,
-	Unit: string?,
-	ValueEntered: (number) -> number?,
-	LayoutOrder: number?,
-	ChipColor: Color3?,
-	Grow: boolean?,
-})
-	local hasFocus, setHasFocus = React.useState(false)
-
-	local displayText = string.format('<b>%g</b><font size="14">%s</font>', props.Value, if props.Unit then props.Unit else "")
-
-	local textBoxRef = React.useRef(nil)
-	local numberPartLength = TextService:GetTextSize(
-		string.format("%g", props.Value),
-		20,
-		Enum.Font.RobotoMono,
-		Vector2.new(1000, 1000)
-	).X
-	local unitPartLength = TextService:GetTextSize(
-		if props.Unit then props.Unit else "",
-		14,
-		Enum.Font.RobotoMono,
-		Vector2.new(1000, 1000)
-	).X
-	local displayTextSize = numberPartLength + unitPartLength
-	local textFitsAtNormalSize = not textBoxRef.current or
-		textBoxRef.current.AbsoluteSize.X >= displayTextSize + 4
-
-	local onFocusLost = React.useCallback(function(object: TextBox, enterPressed: boolean)
-		local newValue = InterpretValue(object.Text)
-		if newValue then
-			newValue = props.ValueEntered(newValue)
-			-- If the value didn't change we need to revert because we won't get rerendered
-			if newValue == props.Value then
-				object.Text = displayText
-			end
-		else
-			-- Revert to previous value
-			object.Text = displayText
-		end
-		setHasFocus(false)
-	end, { props.ValueEntered, displayText } :: {any})
-
-	local onFocused = React.useCallback(function(object: TextBox)
-		setHasFocus(true)
-	end, {})
-
-	return e("Frame", {
-		Size = if props.Grow then UDim2.new() else UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		LayoutOrder = props.LayoutOrder,
-	}, {
-		ListLayout = e("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			HorizontalAlignment = Enum.HorizontalAlignment.Left,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 4),
-		}),
-		Flex = props.Grow and e("UIFlexItem", {
-			FlexMode = Enum.UIFlexMode.Grow,
-		}),
-		Label = props.Label and e("TextLabel", {
-			Text = props.Label,
-			TextColor3 = WHITE,
-			BackgroundTransparency = 1,
-			Size = UDim2.new(0, 0, 0, 24),
-			AutomaticSize = Enum.AutomaticSize.XY,
-			Font = Enum.Font.SourceSans,
-			TextSize = 18,
-			LayoutOrder = 1,
-		}),
-		TextBox = e("TextBox", {
-			Text = textFitsAtNormalSize and displayText or " " .. displayText,
-			TextColor3 = WHITE,
-			RichText = true,
-			BackgroundColor3 = GREY,
-			Size = UDim2.new(0, 0, 0, 24),
-			Font = Enum.Font.RobotoMono,
-			TextScaled = not textFitsAtNormalSize,
-			TextSize = 20,
-			LayoutOrder = 2,
-			[React.Event.Focused] = onFocused,
-			[React.Event.FocusLost] = onFocusLost :: any,
-			ref = textBoxRef,
-		}, {
-			Corner = e("UICorner", {
-				CornerRadius = UDim.new(0, 4),
-			}),
-			Flex = e("UIFlexItem", {
-				FlexMode = Enum.UIFlexMode.Grow,
-			}),
-			Border = hasFocus and e("UIStroke", {
-				Color = ACTION_BLUE,
-				Thickness = 1,
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			}),
-			ChipColor = props.ChipColor and not hasFocus and e("CanvasGroup", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-			}, {
-				ChipFrame = e("Frame", {
-					Size = UDim2.new(0, 2, 1, 0),
-					BackgroundColor3 = props.ChipColor,
-				}),
-				Corner = e("UICorner", {
-					CornerRadius = UDim.new(0, 4),
-				}),
-			}),
-		}),
-	})
-end
-
-local function AutoButtonColorDarken(c: Color3): Color3
-	return c:Lerp(BLACK, 0.3)
-end
-
-local function Checkbox(props: {
-	Label: string,
-	Checked: boolean,
-	Changed: (boolean) -> (),
-	LayoutOrder: number?,
-})
-	local labelHovered, setLabelHovered = React.useState(false)
-	local checkboxColor = if props.Checked then ACTION_BLUE else GREY
-	if labelHovered then
-		checkboxColor = AutoButtonColorDarken(checkboxColor)
-	end
-
-	return e("Frame", {
-		Size = UDim2.new(1, 0, 0, 24),
-		BackgroundTransparency = 1,
-		LayoutOrder = props.LayoutOrder,
-	}, {
-		ListLayout = e("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			HorizontalAlignment = Enum.HorizontalAlignment.Left,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 4),
-		}),
-		Label = e("TextButton", {
-			Size = UDim2.new(0, 0, 0, 24),
-			AutomaticSize = Enum.AutomaticSize.X,
-			Text = props.Label,
-			TextColor3 = WHITE,
-			AutoButtonColor = false,
-			BackgroundTransparency = 1,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Font = Enum.Font.SourceSans,
-			TextSize = 18,
-			LayoutOrder = 1,
-			[React.Event.MouseButton1Click] = function()
-				props.Changed(not props.Checked)
-			end,
-			[React.Event.MouseEnter] = function()
-				setLabelHovered(true)
-			end,
-			[React.Event.MouseLeave] = function()
-				setLabelHovered(false)
-			end,
-		}),
-		CheckBox = e("TextButton", {
-			Size = UDim2.new(0, 24, 0, 24),
-			BackgroundColor3 = checkboxColor,
-			Text = if props.Checked then "✓" else "",
-			TextColor3 = WHITE,
-			Font = Enum.Font.SourceSansBold,
-			TextSize = 24,
-			LayoutOrder = 2,
-			[React.Event.MouseButton1Click] = function()
-				props.Changed(not props.Checked)
-			end,
-		}, {
-			Corner = e("UICorner", {
-				CornerRadius = UDim.new(0, 4),
-			}),
-			Stroke = not props.Checked and e("UIStroke", {
-				Color = Color3.fromRGB(136, 136, 136),
-				Thickness = 1,
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				BorderStrokePosition = Enum.BorderStrokePosition.Inner,
-			}),
-		}),
-	})
-end
 
 local function CopiesPanel(props: {
 	CurrentSettings: Settings.RedupeSettings,
@@ -860,7 +389,7 @@ local function RotateModeImageChip(props: {
 		Size = UDim2.new(0, 0, 0, helpContext.HaveHelp and 33 or 36),
 		BackgroundTransparency = 1,
 		Image = props.Image,
-		ImageColor3 = if not props.IsCurrent and isHovered then WHITE:Lerp(BLACK, 0.3) else WHITE,
+		ImageColor3 = if not props.IsCurrent and isHovered then Colors.WHITE:Lerp(Colors.BLACK, 0.3) else Colors.WHITE,
 		ImageRectOffset = props.ImageRectOffset,
 		ScaleType = Enum.ScaleType.Crop,
 		ImageRectSize = props.ImageRectSize,
@@ -874,7 +403,7 @@ local function RotateModeImageChip(props: {
 		end,
 	}, {
 		Stroke = props.IsCurrent and e("UIStroke", {
-			Color = WHITE,
+			Color = Colors.WHITE,
 			Thickness = 2,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 			BorderStrokePosition = Enum.BorderStrokePosition.Inner,
@@ -1000,7 +529,7 @@ local function GroupAsToggle(props: {
 	return e("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
 		BorderSizePixel = 0,
-		BackgroundColor3 = ACTION_BLUE,
+		BackgroundColor3 = Colors.ACTION_BLUE,
 		AutomaticSize = Enum.AutomaticSize.Y,
 	}, {
 		ListLayout = e("UIListLayout", {
@@ -1118,7 +647,7 @@ local function SessionTopInfoRow(props: {
 		DragText = not props.Panelized and e("TextLabel", {
 			AutomaticSize = Enum.AutomaticSize.XY,
 			BackgroundTransparency = 1,
-			TextColor3 = WHITE,
+			TextColor3 = Colors.WHITE,
 			Text = "::",
 			Font = Enum.Font.SourceSansBold,
 			TextSize = 32,
@@ -1152,7 +681,7 @@ local function SessionTopInfoRow(props: {
 		PluginNameLabel = e("TextLabel", {
 			BackgroundTransparency = 1,
 			AutomaticSize = Enum.AutomaticSize.Y,
-			TextColor3 = WHITE,
+			TextColor3 = Colors.WHITE,
 			RichText = true,
 			Text = stHovered and "by stravant" or "<i>Redupe</i>",
 			Font = Enum.Font.SourceSansBold,
@@ -1172,7 +701,7 @@ local function SessionTopInfoRow(props: {
 		}, {
 			ToggleHelp = e(OperationButton, {
 				Text = helpContext.HaveHelp and "Hide Help" or "Help",
-				Color = ACTION_BLUE,
+				Color = Colors.ACTION_BLUE,
 				Height = 24,
 				OnClick = function()
 					helpContext.SetHaveHelp(not helpContext.HaveHelp)
@@ -1414,7 +943,7 @@ local function ScrollableSessionView(props: {
 	return e("ImageButton", {
 		Size = UDim2.new(1, 0, 0, currentDisplaySize + props.CurrentSettings.WindowHeightDelta),
 		BackgroundTransparency = 0,
-		BackgroundColor3 = BLACK,
+		BackgroundColor3 = Colors.BLACK,
 		AutoButtonColor = false,
 		Image = "",
 		[React.Event.InputBegan] = dragFunction,
@@ -1466,7 +995,7 @@ local function ScrollableSessionView(props: {
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
 			Text = "",
-			BackgroundColor3 = BLACK,
+			BackgroundColor3 = Colors.BLACK,
 			AutoButtonColor = false,
 			LayoutOrder = 3,
 			ZIndex = 2,
@@ -1482,14 +1011,14 @@ local function ScrollableSessionView(props: {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Size = UDim2.new(1, -8, 0, 1),
 				Position = UDim2.new(0.5, 0, 0.5, -1),
-				BackgroundColor3 = OFFWHITE,
+				BackgroundColor3 = Colors.OFFWHITE,
 				BorderSizePixel = 0,
 			}),
 			Line2 = e("Frame", {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Size = UDim2.new(1, -8, 0, 1),
 				Position = UDim2.new(0.5, 0, 0.5, 1),
-				BackgroundColor3 = OFFWHITE,
+				BackgroundColor3 = Colors.OFFWHITE,
 				BorderSizePixel = 0,
 			}),
 		}),
@@ -1559,7 +1088,7 @@ local function MainGuiPanelized(props: {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.fromScale(1, 0),
 			BorderSizePixel = 0,
-			BackgroundColor3 = BLACK,
+			BackgroundColor3 = Colors.BLACK,
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			ScrollBarThickness = 0,
 		}, {
@@ -1588,7 +1117,7 @@ local function MainGuiPanelized(props: {
 	else
 		return e("Frame", {
 			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = BLACK,
+			BackgroundColor3 = Colors.BLACK,
 			BorderSizePixel = 0,
 		}, {
 			CenteredContent = e("Frame", {
@@ -1610,8 +1139,8 @@ local function MainGuiPanelized(props: {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
 					AutomaticSize = Enum.AutomaticSize.XY,
-					TextColor3 = WHITE,
-					BackgroundColor3 = ACTION_BLUE,
+					TextColor3 = Colors.WHITE,
+					BackgroundColor3 = Colors.ACTION_BLUE,
 					RichText = true,
 					Text = "<font size=\"26\" face=\"SourceSans\">Activate</font> <i>Redupe</i>",
 					Font = Enum.Font.SourceSansBold,

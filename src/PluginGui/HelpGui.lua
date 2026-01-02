@@ -1,10 +1,10 @@
 --!strict
-
-local Plugin = script.Parent.Parent
+local Plugin = script.Parent.Parent.Parent
 local Packages = Plugin.Packages
 
-local Settings = require(script.Parent.Settings)
 local React = require(Packages.React)
+
+local Settings = require("../Settings")
 
 local e = React.createElement
 
