@@ -13,6 +13,7 @@ local SubPanel = require("./PluginGui/SubPanel")
 local ChipForToggle = require("./PluginGui/ChipForToggle")
 local NumberInput = require("./PluginGui/NumberInput")
 local Checkbox = require("./PluginGui/Checkbox")
+local Vector3Input = require("./PluginGui/Vector3Input")
 
 local e = React.createElement
 
@@ -318,59 +319,19 @@ local function RotationDisplay(props: {
 	local yDegrees = toCleanDegree(y)
 	local zDegrees = toCleanDegree(z)
 
-	return e("Frame", {
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
+	return e(Vector3Input, {
+		Value = Vector3.new(xDegrees, yDegrees, zDegrees),
+		ValueEntered = function(newValue: Vector3)
+			local thetaX = math.rad(newValue.X)
+			local thetaY = math.rad(newValue.Y)
+			local thetaZ = math.rad(newValue.Z)
+			local rotation = CFrame.fromEulerAnglesXYZ(thetaX, thetaY, thetaZ)
+			props.CurrentSettings.Rotation = rotation
+			props.UpdateSettings()
+			return nil
+		end,
+		Unit = "°",
 		LayoutOrder = props.LayoutOrder,
-	}, {
-		ListLayout = e("UIListLayout", {
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 4),
-		}),
-		XCoord = e(NumberInput, {
-			Unit = "°",
-			Value = xDegrees,
-			Grow = true,
-			ChipColor = Color3.fromRGB(255, 0, 0),
-			ValueEntered = function(newValue: number)
-				local theta = math.rad(newValue)
-				local rotation = CFrame.fromEulerAnglesXYZ(theta, y, z)
-				props.CurrentSettings.Rotation = rotation
-				props.UpdateSettings()
-				return nil
-			end,
-			LayoutOrder = 1,
-		}),
-		YCoord = e(NumberInput, {
-			Unit = "°",
-			Value = yDegrees,
-			Grow = true,
-			ChipColor = Color3.fromRGB(0, 255, 0),
-			ValueEntered = function(newValue: number)
-				local theta = math.rad(newValue)
-				local rotation = CFrame.fromEulerAnglesXYZ(x, theta, z)
-				props.CurrentSettings.Rotation = rotation
-				props.UpdateSettings()
-				return nil
-			end,
-			LayoutOrder = 2,
-		}),
-		ZCoord = e(NumberInput, {
-			Unit = "°",
-			Value = zDegrees,
-			Grow = true,
-			ChipColor = Color3.fromRGB(0, 0, 255),
-			ValueEntered = function(newValue: number)
-				local theta = math.rad(newValue)
-				local rotation = CFrame.fromEulerAnglesXYZ(x, y, theta)
-				props.CurrentSettings.Rotation = rotation
-				props.UpdateSettings()
-				return nil
-			end,
-			LayoutOrder = 3,
-		}),
 	})
 end
 
