@@ -11,6 +11,7 @@ local Signal = require(Packages.Signal)
 local createRedupeSession = require("./createRedupeSession")
 local Settings = require("./Settings")
 local RedupeGui = require("./RedupeGui")
+local PluginGui = require("./PluginGui/PluginGui")
 
 local function getFilteredSelection(): { Instance }
 	local selection = Selection:Get()
@@ -73,6 +74,16 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 		end
 	end
 
+	local function getGuiState(): PluginGui.PluginGuiState
+		if not active then
+			return "inactive"
+		elseif session == nil then
+			return "pending"
+		else
+			return "active"
+		end
+	end
+
 	local function updateUI()
 		local needsUI = active or panel.Enabled
 		if needsUI then
@@ -91,7 +102,7 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 			assert(reactRoot, "We just created it")
 			reactRoot:render(React.createElement(RedupeGui, {
 				CanPlace = session and session.CanPlace() or false,
-				HasSession = session ~= nil,
+				GuiState = getGuiState(),
 				CurrentSettings = activeSettings,
 				UpdatedSettings = function()
 					if session then
@@ -101,7 +112,6 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 				end,
 				HandleAction = handleAction,
 				Panelized = panel.Enabled,
-				Active = active,
 			}))
 		elseif reactRoot then
 			destroyReactRoot()

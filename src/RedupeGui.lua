@@ -533,22 +533,20 @@ local function ResultPanel(props: {
 end
 
 local function RedupeGui(props: {
-	HasSession: boolean,
+	GuiState: PluginGui.PluginGuiState,
 	CanPlace: boolean,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
-	Active: boolean,
 })
 	local nextOrder = createNextOrder()
 	return e(PluginGui, {
-		HasSession = props.HasSession,
+		GuiState = props.GuiState,
 		CurrentSettings = props.CurrentSettings,
 		UpdatedSettings = props.UpdatedSettings,
 		HandleAction = props.HandleAction,
 		Panelized = props.Panelized,
-		Active = props.Active,
 	}, {
 		OperationPanel = e(OperationPanel, {
 			GroupAs = props.CurrentSettings.GroupAs,

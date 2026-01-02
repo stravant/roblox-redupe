@@ -21,6 +21,11 @@ local function createNextOrder()
 	end
 end
 
+-- Inactive = plugin's tool is not active
+-- Pending = the tool is active but has no selection to work on
+-- Active = the tool is active and has a selection to work on
+export type PluginGuiState = "inactive" | "pending" | "active"
+
 local function SessionTopInfoRow(props: {
 	LayoutOrder: number?,
 	ShowHelpToggle: boolean,
@@ -429,11 +434,10 @@ local function ScrollableSessionView(props: {
 end
 
 local function MainGuiViewport(props: {
-	HasSession: boolean,
+	GuiState: PluginGuiState,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
-	Active: boolean,
 	children: {[string]: React.ReactNode}?,
 })
 	local settings = props.CurrentSettings
@@ -452,7 +456,7 @@ local function MainGuiViewport(props: {
 		BackgroundTransparency = 1,
 		[React.Tag] = "MainWindow",
 	}, {
-		Content = if props.HasSession
+		Content = if props.GuiState == "active"
 			then e(ScrollableSessionView, {
 				CurrentSettings = props.CurrentSettings,
 				UpdatedSettings = props.UpdatedSettings,
@@ -477,15 +481,69 @@ local function MainGuiViewport(props: {
 	})
 end
 
+local function InactiveView(props: {
+	OnActivate: () -> (),
+})
+	return e("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Colors.BLACK,
+		BorderSizePixel = 0,
+	}, {
+		CenteredContent = e("Frame", {
+			Size = UDim2.fromOffset(200, 0),
+			AutomaticSize = Enum.AutomaticSize.XY,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			BackgroundTransparency = 1,
+		}, {
+			ListLayout = e("UIListLayout", {
+				FillDirection = Enum.FillDirection.Vertical,
+				HorizontalAlignment = Enum.HorizontalAlignment.Center,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, 10),
+			}),
+		}, {
+			Content = e("TextButton", {
+				LayoutOrder = 2,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AutomaticSize = Enum.AutomaticSize.XY,
+				TextColor3 = Colors.WHITE,
+				BackgroundColor3 = Colors.ACTION_BLUE,
+				RichText = true,
+				Text = "<font size=\"26\" face=\"SourceSans\">Activate</font> <i>Redupe</i>",
+				Font = Enum.Font.SourceSansBold,
+				TextSize = 26,
+				[React.Event.MouseButton1Click] = props.OnActivate,
+			}, {
+				Corner = e("UICorner", {
+					CornerRadius = UDim.new(0, 8),
+				}),
+				Padding = e("UIPadding", {
+					PaddingBottom = UDim.new(0, 8),
+					PaddingTop = UDim.new(0, 8),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+			}),
+		}),
+	})
+end
+
 local function MainGuiPanelized(props: {
-	HasSession: boolean,
+	GuiState: PluginGuiState,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
-	Active: boolean,
 	children: {[string]: React.ReactNode}?,
 }): React.ReactNode
-	if props.Active then
+	if props.GuiState == "inactive" then
+		return e(InactiveView, {
+			OnActivate = function()
+				props.HandleAction("reset")
+			end,
+		})
+	else
 		return e("ScrollingFrame", {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.fromScale(1, 0),
@@ -498,7 +556,7 @@ local function MainGuiPanelized(props: {
 				PaddingBottom = UDim.new(0, 4),
 				PaddingTop = UDim.new(0, 4),
 			}),
-			Content = if props.HasSession
+			Content = if props.GuiState == "active"
 				then e(SessionView, {
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
@@ -515,63 +573,15 @@ local function MainGuiPanelized(props: {
 				Panelized = true,
 			}),
 		})
-	else
-		return e("Frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = Colors.BLACK,
-			BorderSizePixel = 0,
-		}, {
-			CenteredContent = e("Frame", {
-				Size = UDim2.fromOffset(200, 0),
-				AutomaticSize = Enum.AutomaticSize.XY,
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				BackgroundTransparency = 1,
-			}, {
-				ListLayout = e("UIListLayout", {
-					FillDirection = Enum.FillDirection.Vertical,
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 10),
-				}),
-			}, {
-				Content = e("TextButton", {
-					LayoutOrder = 2,
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromScale(0.5, 0.5),
-					AutomaticSize = Enum.AutomaticSize.XY,
-					TextColor3 = Colors.WHITE,
-					BackgroundColor3 = Colors.ACTION_BLUE,
-					RichText = true,
-					Text = "<font size=\"26\" face=\"SourceSans\">Activate</font> <i>Redupe</i>",
-					Font = Enum.Font.SourceSansBold,
-					TextSize = 26,
-					[React.Event.MouseButton1Click] = function()
-						props.HandleAction("reset")
-					end,
-				}, {
-					Corner = e("UICorner", {
-						CornerRadius = UDim.new(0, 8),
-					}),
-					Padding = e("UIPadding", {
-						PaddingBottom = UDim.new(0, 8),
-						PaddingTop = UDim.new(0, 8),
-						PaddingLeft = UDim.new(0, 16),
-						PaddingRight = UDim.new(0, 16),
-					}),
-				}),
-			}),
-		})
 	end
 end
 
 local function PluginGui(props: {
-	HasSession: boolean,
+	GuiState: PluginGuiState,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
-	Active: boolean,
 	children: {[string]: React.ReactNode}?,
 })
 	return e(HelpGui.Provider, {
@@ -579,11 +589,10 @@ local function PluginGui(props: {
 		UpdatedSettings = props.UpdatedSettings,
 	}, {
 		Viewport = e(props.Panelized and MainGuiPanelized or MainGuiViewport, {
-			HasSession = props.HasSession,
+			GuiState = props.GuiState,
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,
 			HandleAction = props.HandleAction,
-			Active = props.Active,
 		}, props.children),
 	})
 end
