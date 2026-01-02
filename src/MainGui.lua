@@ -33,6 +33,7 @@ local BLACK = Color3.fromRGB(0, 0, 0)
 local GREY = Color3.fromRGB(38, 38, 38)
 local DISABLED_GREY = Color3.fromRGB(72, 72, 72)
 local WHITE = Color3.fromRGB(255, 255, 255)
+local OFFWHITE = Color3.new(0.8, 0.8, 0.8)
 local DARK_RED = Color3.new(0.705882, 0, 0)
 local ACTION_BLUE = Color3.fromRGB(0, 60, 255)
 
@@ -1477,11 +1478,18 @@ local function ScrollableSessionView(props: {
 			Corner = e("UICorner", {
 				CornerRadius = UDim.new(0, 4),
 			}),
-			Line = e("Frame", {
+			Line1 = e("Frame", {
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Size = UDim2.new(1, -8, 0, 2),
-				Position = UDim2.fromScale(0.5, 0.5),
-				BackgroundColor3 = Color3.new(0.8, 0.8, 0.8),
+				Size = UDim2.new(1, -8, 0, 1),
+				Position = UDim2.new(0.5, 0, 0.5, -1),
+				BackgroundColor3 = OFFWHITE,
+				BorderSizePixel = 0,
+			}),
+			Line2 = e("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Size = UDim2.new(1, -8, 0, 1),
+				Position = UDim2.new(0.5, 0, 0.5, 1),
+				BackgroundColor3 = OFFWHITE,
 				BorderSizePixel = 0,
 			}),
 		}),
