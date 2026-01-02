@@ -4,13 +4,13 @@ local Selection = game:GetService("Selection")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local Packages = script.Parent.Parent.Packages
-
-local createRedupeSession = require(script.Parent.createRedupeSession)
-local Settings = require(script.Parent.Settings)
-local MainGui = require(script.Parent.MainGui)
 local React = require(Packages.React)
 local ReactRoblox = require(Packages.ReactRoblox)
 local Signal = require(Packages.Signal)
+
+local createRedupeSession = require("./createRedupeSession")
+local Settings = require("./Settings")
+local RedupeGui = require("./RedupeGui")
 
 local function getFilteredSelection(): { Instance }
 	local selection = Selection:Get()
@@ -89,7 +89,7 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 			end
 
 			assert(reactRoot, "We just created it")
-			reactRoot:render(React.createElement(MainGui, {
+			reactRoot:render(React.createElement(RedupeGui, {
 				CanPlace = session and session.CanPlace() or false,
 				HasSession = session ~= nil,
 				CurrentSettings = activeSettings,
