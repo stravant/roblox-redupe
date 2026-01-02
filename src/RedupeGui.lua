@@ -13,6 +13,7 @@ local Vector3Input = require("./PluginGui/Vector3Input")
 local PluginGui = require("./PluginGui/PluginGui")
 local OperationButton = require("./PluginGui/OperationButton")
 local Settings = require("./Settings")
+local PluginGuiTypes = require("./PluginGui/Types")
 
 local e = React.createElement
 
@@ -533,7 +534,7 @@ local function ResultPanel(props: {
 end
 
 local function RedupeGui(props: {
-	GuiState: PluginGui.PluginGuiState,
+	GuiState: PluginGuiTypes.PluginGuiState,
 	CanPlace: boolean,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),

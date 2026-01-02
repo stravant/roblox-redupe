@@ -11,7 +11,7 @@ local Signal = require(Packages.Signal)
 local createRedupeSession = require("./createRedupeSession")
 local Settings = require("./Settings")
 local RedupeGui = require("./RedupeGui")
-local PluginGui = require("./PluginGui/PluginGui")
+local PluginGuiTypes = require("./PluginGui/Types")
 
 local function getFilteredSelection(): { Instance }
 	local selection = Selection:Get()
@@ -74,7 +74,7 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 		end
 	end
 
-	local function getGuiState(): PluginGui.PluginGuiState
+	local function getGuiState(): PluginGuiTypes.PluginGuiState
 		if not active then
 			return "inactive"
 		elseif session == nil then

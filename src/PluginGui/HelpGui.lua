@@ -4,7 +4,7 @@ local Packages = Plugin.Packages
 
 local React = require(Packages.React)
 
-local Settings = require("../Settings")
+local Types = require("./Types")
 
 local e = React.createElement
 
@@ -38,7 +38,7 @@ type HelpMessageType = {
 
 
 function HelpGui.Provider(props: {
-	CurrentSettings: Settings.RedupeSettings,
+	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	children: React.ReactElement<any, any>?,
 })

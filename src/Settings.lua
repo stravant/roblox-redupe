@@ -1,10 +1,9 @@
 local InitialPosition = Vector2.new(24, 24)
 local kSettingsKey = "redupeState"
 
-export type RedupeSettings = {
-	WindowPosition: Vector2,
-	WindowAnchor: Vector2,
-	WindowHeightDelta: number,
+local PluginGuiTypes = require("./PluginGui/Types")
+
+export type RedupeSettings = PluginGuiTypes.PluginGuiSettings & {
 	CopyCount: number,
 	FinalCopyCount: number, -- Not saved, after redundancy is accounted for
 	CopySpacing: number,
@@ -15,8 +14,6 @@ export type RedupeSettings = {
 	TouchSide: number,
 	GroupAs: string,
 	AddOriginalToGroup: boolean,
-	HaveHelp: boolean,
-	DoneTutorial: boolean,
 	ResizeAlign: boolean,
 }
 

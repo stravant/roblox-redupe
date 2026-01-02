@@ -6,10 +6,10 @@ local Packages = Plugin.Packages
 local React = require(Packages.React)
 
 local Colors = require("./Colors")
-local Settings = require("../Settings")
 local HelpGui = require("./HelpGui")
 local TutorialGui = require("./TutorialGui")
 local OperationButton = require("./OperationButton")
+local Types = require("./Types")
 
 local e = React.createElement
 
@@ -20,11 +20,6 @@ local function createNextOrder()
 		return order
 	end
 end
-
--- Inactive = plugin's tool is not active
--- Pending = the tool is active but has no selection to work on
--- Active = the tool is active and has a selection to work on
-export type PluginGuiState = "inactive" | "pending" | "active"
 
 local function SessionTopInfoRow(props: {
 	LayoutOrder: number?,
@@ -141,7 +136,7 @@ local function getViewSize(): Vector2
 end
 
 -- Determines which edge to make the position relative to
-local function updateWindowPosition(settings: Settings.RedupeSettings, size: Vector2, newPositionScreenSpace: Vector2)
+local function updateWindowPosition(settings: Types.PluginGuiSettings, size: Vector2, newPositionScreenSpace: Vector2)
 	local viewSize = getViewSize()
 	local center = newPositionScreenSpace + size / 2
 	local centerFraction = center / viewSize
@@ -173,7 +168,7 @@ local function getMainWindowSize(context: Instance): Vector2
 	end
 end
 
-local function createBeginDragFunction(settings: Settings.RedupeSettings, updatedSettings: () -> ())
+local function createBeginDragFunction(settings: Types.PluginGuiSettings, updatedSettings: () -> ())
 	return function(instance, inputObject: InputObject)
 		if inputObject.UserInputState ~= Enum.UserInputState.Begin then
 			return
@@ -208,7 +203,7 @@ local function createBeginDragFunction(settings: Settings.RedupeSettings, update
 end
 
 local function SessionView(props: {
-	CurrentSettings: Settings.RedupeSettings,
+	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
@@ -258,7 +253,7 @@ local function SessionView(props: {
 end
 
 local function EmptySessionView(props: {
-	CurrentSettings: Settings.RedupeSettings,
+	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
@@ -313,7 +308,7 @@ local function EmptySessionView(props: {
 	})
 end
 
-local function createBeginResizeFunction(settings: Settings.RedupeSettings, updatedSettings: () -> ())
+local function createBeginResizeFunction(settings: Types.PluginGuiSettings, updatedSettings: () -> ())
 	return function(instance, x, y)
 		local startMouseLocation = UserInputService:GetMouseLocation()
 		local startWindowSizeDelta = settings.WindowHeightDelta
@@ -340,7 +335,7 @@ local function createBeginResizeFunction(settings: Settings.RedupeSettings, upda
 end
 
 local function ScrollableSessionView(props: {
-	CurrentSettings: Settings.RedupeSettings,
+	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
@@ -434,8 +429,8 @@ local function ScrollableSessionView(props: {
 end
 
 local function MainGuiViewport(props: {
-	GuiState: PluginGuiState,
-	CurrentSettings: Settings.RedupeSettings,
+	GuiState: Types.PluginGuiState,
+	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	children: {[string]: React.ReactNode}?,
@@ -531,8 +526,8 @@ local function InactiveView(props: {
 end
 
 local function MainGuiPanelized(props: {
-	GuiState: PluginGuiState,
-	CurrentSettings: Settings.RedupeSettings,
+	GuiState: Types.PluginGuiState,
+	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	children: {[string]: React.ReactNode}?,
@@ -577,8 +572,8 @@ local function MainGuiPanelized(props: {
 end
 
 local function PluginGui(props: {
-	GuiState: PluginGuiState,
-	CurrentSettings: Settings.RedupeSettings,
+	GuiState: Types.PluginGuiState,
+	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
