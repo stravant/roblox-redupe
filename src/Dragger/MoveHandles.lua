@@ -1,4 +1,4 @@
-local Packages = script.Parent.Parent.Packages
+local Packages = script.Parent.Parent.Parent.Packages
 local Roact = require(Packages.Roact)
 local DraggerFramework = require(Packages.DraggerFramework)
 

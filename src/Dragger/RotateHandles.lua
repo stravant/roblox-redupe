@@ -1,7 +1,7 @@
 local Workspace = game:GetService("Workspace")
 
 -- Libraries
-local Packages = script.Parent.Parent.Packages
+local Packages = script.Parent.Parent.Parent.Packages
 local Roact = require(Packages.Roact)
 local DraggerFramework = require(Packages.DraggerFramework)
 
@@ -152,7 +152,7 @@ function RotateHandles:_summonHandles()
 	end
 
 	local mouseRay = self._draggerContext:getMouseRay()
-	local hitSelectable, hitItem, distance = self._schema.getMouseTarget(self._draggerContext, mouseRay, {})
+	local _hitSelectable, hitItem, distance = self._schema.getMouseTarget(self._draggerContext, mouseRay, {})
 	if hitItem then
 		local hitPoint = mouseRay.Origin + mouseRay.Direction.Unit * distance
 		self._summonBasisOffset = CFrame.new(self._boundingBox.CFrame:PointToObjectSpace(hitPoint))
@@ -168,7 +168,9 @@ function RotateHandles:_summonHandles()
 		-- 		self._summonWasSnappedToSurface = isOnSurface
 		-- 	end
 		-- end
+		return true
 	end
+	return false
 end
 
 function RotateHandles:_endSummon()

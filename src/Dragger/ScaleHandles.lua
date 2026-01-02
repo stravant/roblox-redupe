@@ -3,7 +3,7 @@
 ]]
 
 -- Libraries
-local Packages = script.Parent.Parent.Packages
+local Packages = script.Parent.Parent.Parent.Packages
 local Roact = require(Packages.Roact)
 local DraggerFramework = require(Packages.DraggerFramework)
 
@@ -80,10 +80,6 @@ local BOX_CORNERS = {
 	Vector3.new(-0.5, -0.5, -0.5),
 }
 
-local function nextNormalId(normalId)
-	return normalId % 3 + 1
-end
-
 function ExtrudeHandle.new(draggerContext, props)
 	local self = {}
 	self._handles = {}
@@ -105,6 +101,7 @@ function ExtrudeHandle:_summonHandles()
 		local point = self._boundingBox.CFrame:PointToObjectSpace(hitPoint)
 		local halfSize = self._boundingBox.Size / 2
 		self._summonBasisOffset = CFrame.new(point:Max(-halfSize):Min(halfSize))
+		return true
 	else
 		-- Try to pick a point on the selection closest to the cursor
 		local cursorOnScreen = self._draggerContext:getMouseLocation()
@@ -113,7 +110,7 @@ function ExtrudeHandle:_summonHandles()
 		for _, cornerOffset in ipairs(BOX_CORNERS) do
 			local cornerInWorld = self._boundingBox.CFrame * CFrame.new(self._boundingBox.Size * cornerOffset)
 			local cornerOnScreen, inView = self._draggerContext:worldToViewportPoint(cornerInWorld.Position)
-			local distance = (cursorOnScreen - Vector2.new(cornerOnScreen.X, cornerOnScreen.Y)).Magnitude
+			distance = (cursorOnScreen - Vector2.new(cornerOnScreen.X, cornerOnScreen.Y)).Magnitude
 			if inView and distance < closestDistanceOnScreen then
 				closestDistanceOnScreen = distance
 				closestWorldPoint = cornerInWorld
@@ -121,8 +118,10 @@ function ExtrudeHandle:_summonHandles()
 		end
 		if closestWorldPoint then
 			self._summonBasisOffset = self._boundingBox.CFrame:ToObjectSpace(closestWorldPoint)
+			return true
 		end
 	end
+	return false
 end
 
 function ExtrudeHandle:_endSummon()
@@ -229,8 +228,6 @@ end
 -- This function updates the Extrude Mode that this tool uses, and returns whether it changed
 -- from the last time it was computed.
 function ExtrudeHandle:_updateExtrudeMode()
-	local selection = self._selectionWrapper:get()
-	local selectionInfo = self._selectionInfo
 	local normalId = self._normalId
 	local resizeFromCenter = self:_shouldScaleFromCenter()
 	local axesToScale = self:_axesToScale(normalId)
@@ -446,18 +443,6 @@ function ExtrudeHandle:mouseDown(mouseRay, handleId)
 	self._props.StartScale()
 end
 
-local function computeDeltaSize(originalSize, delta, normalId, keepAspectRatio)
-	local sizeComponents = {originalSize.X, originalSize.Y, originalSize.Z}
-	local xyz = {0, 0, 0}
-	xyz[normalId] = delta
-	if keepAspectRatio then
-		local ratio = delta / sizeComponents[normalId]
-		xyz[nextNormalId(normalId)] = sizeComponents[nextNormalId(normalId)] * ratio
-		xyz[nextNormalId(nextNormalId(normalId))] = sizeComponents[nextNormalId(nextNormalId(normalId))] * ratio
-	end
-	return Vector3.new(unpack(xyz))
-end
-
 -- Clamp x between min and max while changing it in increments of step (when step is nonzero)
 -- Assumes max - min > step >= 0
 -- One can write this code in a single formula, but since implementation of % is different in C++ and Lua,
@@ -490,10 +475,6 @@ local function computeDeltaSizeMultiaxis(originalSize, delta, axisId, axesToScal
 	local ratio = actualDelta / originalSizeArray[axisId]
 	local deltaSize = originalSize * Math.setToVector3(axesToScale) * ratio
 	return deltaSize, actualDelta
-end
-
-local function maxComponent(vector: Vector3)
-	return math.max(math.abs(vector.X), math.abs(vector.Y), math.abs(vector.Z))
 end
 
 function ExtrudeHandle:mouseDrag(mouseRay)

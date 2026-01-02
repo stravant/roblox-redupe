@@ -1,6 +1,6 @@
 local Workspace = game:GetService("Workspace")
 
-local Packages = script.Parent.Parent.Packages
+local Packages = script.Parent.Parent.Parent.Packages
 local Roact = require(Packages.Roact)
 
 local MAIN_SPHERE_RADIUS = 0.4

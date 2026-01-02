@@ -20,9 +20,9 @@ local bendPlacement = require("./bendPlacement")
 
 local DraggerContext_PluginImpl = (require :: any)(DraggerFramework.Implementation.DraggerContext_PluginImpl)
 local DraggerToolComponent = (require :: any)(DraggerFramework.DraggerTools.DraggerToolComponent)
-local MoveHandles = require("./MoveHandles")
-local ScaleHandles = require("./ScaleHandles")
-local RotateHandles = require("./RotateHandles")
+local MoveHandles = require("./Dragger/MoveHandles")
+local ScaleHandles = require("./Dragger/ScaleHandles")
+local RotateHandles = require("./Dragger/RotateHandles")
 local resizeAlignPairs = require("./resizeAlignPairs")
 
 local ROTATE_GRANULARITY_MULTIPLIER = 2
