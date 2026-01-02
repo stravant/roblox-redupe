@@ -74,7 +74,7 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 		end
 	end
 
-	local function getGuiState(): PluginGuiTypes.PluginGuiState
+	local function getGuiState(): PluginGuiTypes.PluginGuiMode
 		if not active then
 			return "inactive"
 		elseif session == nil then

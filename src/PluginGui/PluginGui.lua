@@ -25,6 +25,7 @@ local function SessionTopInfoRow(props: {
 	LayoutOrder: number?,
 	ShowHelpToggle: boolean,
 	Panelized: boolean,
+	Config: Types.PluginGuiConfig,
 	HandleAction: (string) -> (),
 })
 	local helpContext = HelpGui.use()
@@ -97,7 +98,7 @@ local function SessionTopInfoRow(props: {
 			AutomaticSize = Enum.AutomaticSize.Y,
 			TextColor3 = Colors.WHITE,
 			RichText = true,
-			Text = stHovered and "by stravant" or "<i>Redupe</i>",
+			Text = stHovered and "by stravant" or `<i>{props.Config.PluginName}</i>`,
 			Font = Enum.Font.SourceSansBold,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextSize = stHovered and 24 or 26,
@@ -207,6 +208,7 @@ local function SessionView(props: {
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
+	Config: Types.PluginGuiConfig,
 	OnSizeChanged: (Vector2) -> ()?,
 	children: {[string]: React.ReactNode}?,
 }): React.ReactNode
@@ -241,6 +243,7 @@ local function SessionView(props: {
 			LayoutOrder = nextOrder(),
 			ShowHelpToggle = true,
 			Panelized = true,
+			Config = props.Config,
 			HandleAction = props.HandleAction,
 		}),
 		Content = e("Frame", {
@@ -257,6 +260,7 @@ local function EmptySessionView(props: {
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
+	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 })
 	local beginDrag = if not props.Panelized then
@@ -285,13 +289,14 @@ local function EmptySessionView(props: {
 			ShowHelpToggle = false,
 			HandleAction = props.HandleAction,
 			Panelized = props.Panelized,
+			Config = props.Config,
 		}),
 		InfoLabel = e("TextLabel", {
 			Size = UDim2.new(1, 0, 0, 120),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
-			Text = "Select at least one Part, Model, or Folder to duplicate.\nThen drag the handles to add or configure duplicates and hit Place to confirm.",
+			Text = props.Config.PendingText,
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.SourceSans,
@@ -339,6 +344,7 @@ local function ScrollableSessionView(props: {
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
+	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 }): React.ReactNode
 	local dragFunction = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
@@ -364,6 +370,7 @@ local function ScrollableSessionView(props: {
 				ShowHelpToggle = not props.Panelized,
 				HandleAction = props.HandleAction,
 				Panelized = props.Panelized,
+				Config = props.Config,
 			}),
 			Scroll = e("ScrollingFrame", {
 				Size = UDim2.new(1, 0, 0, 0),
@@ -378,6 +385,7 @@ local function ScrollableSessionView(props: {
 					FlexMode = Enum.UIFlexMode.Grow,
 				}),
 				Content = e(SessionView, {
+					Config = props.Config,
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
 					HandleAction = props.HandleAction,
@@ -429,10 +437,11 @@ local function ScrollableSessionView(props: {
 end
 
 local function MainGuiViewport(props: {
-	GuiState: Types.PluginGuiState,
+	GuiState: Types.PluginGuiMode,
 	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
+	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 })
 	local settings = props.CurrentSettings
@@ -453,12 +462,14 @@ local function MainGuiViewport(props: {
 	}, {
 		Content = if props.GuiState == "active"
 			then e(ScrollableSessionView, {
+				Config = props.Config,
 				CurrentSettings = props.CurrentSettings,
 				UpdatedSettings = props.UpdatedSettings,
 				HandleAction = props.HandleAction,
 				Panelized = false,
 			}, props.children)
 			else e(EmptySessionView, {
+				Config = props.Config,
 				CurrentSettings = props.CurrentSettings,
 				UpdatedSettings = props.UpdatedSettings,
 				Panelized = false,
@@ -478,6 +489,7 @@ end
 
 local function InactiveView(props: {
 	OnActivate: () -> (),
+	PluginName: string,
 })
 	return e("Frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -506,7 +518,7 @@ local function InactiveView(props: {
 				TextColor3 = Colors.WHITE,
 				BackgroundColor3 = Colors.ACTION_BLUE,
 				RichText = true,
-				Text = "<font size=\"26\" face=\"SourceSans\">Activate</font> <i>Redupe</i>",
+				Text = `<font size="26" face="SourceSans">Activate</font> <i>{props.PluginName}</i>`,
 				Font = Enum.Font.SourceSansBold,
 				TextSize = 26,
 				[React.Event.MouseButton1Click] = props.OnActivate,
@@ -526,10 +538,11 @@ local function InactiveView(props: {
 end
 
 local function MainGuiPanelized(props: {
-	GuiState: Types.PluginGuiState,
+	GuiState: Types.PluginGuiMode,
 	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
+	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 }): React.ReactNode
 	if props.GuiState == "inactive" then
@@ -537,6 +550,7 @@ local function MainGuiPanelized(props: {
 			OnActivate = function()
 				props.HandleAction("reset")
 			end,
+			PluginName = props.Config.PluginName,
 		})
 	else
 		return e("ScrollingFrame", {
@@ -553,12 +567,14 @@ local function MainGuiPanelized(props: {
 			}),
 			Content = if props.GuiState == "active"
 				then e(SessionView, {
+					Config = props.Config,
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
 					HandleAction = props.HandleAction,
 					Panelized = true,
 				}, props.children)
 				else e(EmptySessionView, {
+					Config = props.Config,
 					CurrentSettings = props.CurrentSettings,
 					UpdatedSettings = props.UpdatedSettings,
 					Panelized = true,
@@ -572,11 +588,12 @@ local function MainGuiPanelized(props: {
 end
 
 local function PluginGui(props: {
-	GuiState: Types.PluginGuiState,
+	GuiState: Types.PluginGuiMode,
 	CurrentSettings: Types.PluginGuiSettings,
 	UpdatedSettings: () -> (),
 	HandleAction: (string) -> (),
 	Panelized: boolean,
+	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 })
 	return e(HelpGui.Provider, {
@@ -584,6 +601,7 @@ local function PluginGui(props: {
 		UpdatedSettings = props.UpdatedSettings,
 	}, {
 		Viewport = e(props.Panelized and MainGuiPanelized or MainGuiViewport, {
+			Config = props.Config,
 			GuiState = props.GuiState,
 			CurrentSettings = props.CurrentSettings,
 			UpdatedSettings = props.UpdatedSettings,

@@ -533,8 +533,13 @@ local function ResultPanel(props: {
 	})
 end
 
+local REDUPE_CONFIG: PluginGuiTypes.PluginGuiConfig = {
+	PluginName = "Redupe",
+	PendingText = "Select at least one Part, Model, or Folder to duplicate.\nThen drag the handles to add or configure duplicates and hit Place to confirm.",
+}
+
 local function RedupeGui(props: {
-	GuiState: PluginGuiTypes.PluginGuiState,
+	GuiState: PluginGuiTypes.PluginGuiMode,
 	CanPlace: boolean,
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
@@ -547,6 +552,7 @@ local function RedupeGui(props: {
 		CurrentSettings = props.CurrentSettings,
 		UpdatedSettings = props.UpdatedSettings,
 		HandleAction = props.HandleAction,
+		Config = REDUPE_CONFIG,
 		Panelized = props.Panelized,
 	}, {
 		OperationPanel = e(OperationPanel, {
