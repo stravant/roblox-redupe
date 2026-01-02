@@ -17,4 +17,12 @@ export type PluginGuiConfig = {
 	PendingText: string,
 }
 
+export type PluginGuiState = {
+	Mode: PluginGuiMode,
+	Settings: PluginGuiSettings,
+	UpdatedSettings: () -> (),
+	HandleAction: (string) -> (),
+	Panelized: boolean,
+}
+
 return {}

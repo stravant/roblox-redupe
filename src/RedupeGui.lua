@@ -548,12 +548,14 @@ local function RedupeGui(props: {
 })
 	local nextOrder = createNextOrder()
 	return e(PluginGui, {
-		GuiState = props.GuiState,
-		CurrentSettings = props.CurrentSettings,
-		UpdatedSettings = props.UpdatedSettings,
-		HandleAction = props.HandleAction,
 		Config = REDUPE_CONFIG,
-		Panelized = props.Panelized,
+		State = {
+			Mode = props.GuiState,
+			Settings = props.CurrentSettings,
+			UpdatedSettings = props.UpdatedSettings,
+			HandleAction = props.HandleAction,
+			Panelized = props.Panelized,
+		},
 	}, {
 		OperationPanel = e(OperationPanel, {
 			GroupAs = props.CurrentSettings.GroupAs,

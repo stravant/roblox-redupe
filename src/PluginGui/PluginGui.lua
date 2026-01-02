@@ -25,7 +25,7 @@ local function SessionTopInfoRow(props: {
 	LayoutOrder: number?,
 	ShowHelpToggle: boolean,
 	Panelized: boolean,
-	Config: Types.PluginGuiConfig,
+	PluginName: string,
 	HandleAction: (string) -> (),
 })
 	local helpContext = HelpGui.use()
@@ -98,7 +98,7 @@ local function SessionTopInfoRow(props: {
 			AutomaticSize = Enum.AutomaticSize.Y,
 			TextColor3 = Colors.WHITE,
 			RichText = true,
-			Text = stHovered and "by stravant" or `<i>{props.Config.PluginName}</i>`,
+			Text = stHovered and "by stravant" or `<i>{props.PluginName}</i>`,
 			Font = Enum.Font.SourceSansBold,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextSize = stHovered and 24 or 26,
@@ -204,14 +204,12 @@ local function createBeginDragFunction(settings: Types.PluginGuiSettings, update
 end
 
 local function SessionView(props: {
-	CurrentSettings: Types.PluginGuiSettings,
-	UpdatedSettings: () -> (),
-	HandleAction: (string) -> (),
-	Panelized: boolean,
+	State: Types.PluginGuiState,
 	Config: Types.PluginGuiConfig,
 	OnSizeChanged: (Vector2) -> ()?,
 	children: {[string]: React.ReactNode}?,
 }): React.ReactNode
+	local state = props.State
 	local nextOrder = createNextOrder()
 
 	local childrenPlusListLayout: {[string]: React.ReactNode} = table.clone(assert(props.children))
@@ -236,15 +234,15 @@ local function SessionView(props: {
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 		-- Don't let things feel crowded at the bottom of the scrolling panel
-		Padding = props.Panelized and e("UIPadding", {
+		Padding = state.Panelized and e("UIPadding", {
 			PaddingBottom = UDim.new(0, 40),
 		}),
-		TopInfoRow = props.Panelized and e(SessionTopInfoRow, {
+		TopInfoRow = state.Panelized and e(SessionTopInfoRow, {
 			LayoutOrder = nextOrder(),
 			ShowHelpToggle = true,
 			Panelized = true,
-			Config = props.Config,
-			HandleAction = props.HandleAction,
+			PluginName = props.Config.PluginName,
+			HandleAction = state.HandleAction,
 		}),
 		Content = e("Frame", {
 			Size = UDim2.new(1, 0, 0, 0),
@@ -256,18 +254,13 @@ local function SessionView(props: {
 end
 
 local function EmptySessionView(props: {
-	CurrentSettings: Types.PluginGuiSettings,
-	UpdatedSettings: () -> (),
-	HandleAction: (string) -> (),
-	Panelized: boolean,
+	State: Types.PluginGuiState,
 	Config: Types.PluginGuiConfig,
-	children: {[string]: React.ReactNode}?,
 })
-	local beginDrag = if not props.Panelized then
-		createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
+	local state = props.State
+	local beginDrag = if not state.Panelized then
+		createBeginDragFunction(state.Settings, state.UpdatedSettings)
 		else nil
-
-	-- TODO: Pull out some part of this into props.Children
 
 	return e("ImageButton", {
 		Image = "",
@@ -287,9 +280,9 @@ local function EmptySessionView(props: {
 		TopInfoRow = e(SessionTopInfoRow, {
 			LayoutOrder = 1,
 			ShowHelpToggle = false,
-			HandleAction = props.HandleAction,
-			Panelized = props.Panelized,
-			Config = props.Config,
+			HandleAction = state.HandleAction,
+			Panelized = state.Panelized,
+			PluginName = props.Config.PluginName,
 		}),
 		InfoLabel = e("TextLabel", {
 			Size = UDim2.new(1, 0, 0, 120),
@@ -340,18 +333,16 @@ local function createBeginResizeFunction(settings: Types.PluginGuiSettings, upda
 end
 
 local function ScrollableSessionView(props: {
-	CurrentSettings: Types.PluginGuiSettings,
-	UpdatedSettings: () -> (),
-	HandleAction: (string) -> (),
-	Panelized: boolean,
+	State: Types.PluginGuiState,
 	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 }): React.ReactNode
-	local dragFunction = createBeginDragFunction(props.CurrentSettings, props.UpdatedSettings)
+	local state = props.State
+	local dragFunction = createBeginDragFunction(state.Settings, state.UpdatedSettings)
 	local currentDisplaySize, setCurrentDisplaySize = React.useState(300)
 	local HEADER_SIZE_EXTRA = 36
 	return e("ImageButton", {
-		Size = UDim2.new(1, 0, 0, currentDisplaySize + props.CurrentSettings.WindowHeightDelta),
+		Size = UDim2.new(1, 0, 0, currentDisplaySize + state.Settings.WindowHeightDelta),
 		BackgroundTransparency = 0,
 		BackgroundColor3 = Colors.BLACK,
 		AutoButtonColor = false,
@@ -367,10 +358,10 @@ local function ScrollableSessionView(props: {
 			}),
 			Header = e(SessionTopInfoRow, {
 				LayoutOrder = 1,
-				ShowHelpToggle = not props.Panelized,
-				HandleAction = props.HandleAction,
-				Panelized = props.Panelized,
-				Config = props.Config,
+				ShowHelpToggle = not state.Panelized,
+				HandleAction = state.HandleAction,
+				Panelized = state.Panelized,
+				PluginName = props.Config.PluginName,
 			}),
 			Scroll = e("ScrollingFrame", {
 				Size = UDim2.new(1, 0, 0, 0),
@@ -386,10 +377,7 @@ local function ScrollableSessionView(props: {
 				}),
 				Content = e(SessionView, {
 					Config = props.Config,
-					CurrentSettings = props.CurrentSettings,
-					UpdatedSettings = props.UpdatedSettings,
-					HandleAction = props.HandleAction,
-					Panelized = props.Panelized,
+					State = state,
 					OnSizeChanged = function(newSize: Vector2)
 						setCurrentDisplaySize(newSize.Y + HEADER_SIZE_EXTRA)
 					end,
@@ -411,8 +399,8 @@ local function ScrollableSessionView(props: {
 			LayoutOrder = 3,
 			ZIndex = 2,
 			[React.Event.MouseButton1Down] = createBeginResizeFunction(
-				props.CurrentSettings,
-				props.UpdatedSettings
+				state.Settings,
+				state.UpdatedSettings
 			),
 		}, {
 			Corner = e("UICorner", {
@@ -437,14 +425,12 @@ local function ScrollableSessionView(props: {
 end
 
 local function MainGuiViewport(props: {
-	GuiState: Types.PluginGuiMode,
-	CurrentSettings: Types.PluginGuiSettings,
-	UpdatedSettings: () -> (),
-	HandleAction: (string) -> (),
+	State: Types.PluginGuiState,
 	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 })
-	local settings = props.CurrentSettings
+	local state = props.State
+	local settings = state.Settings
 
 	-- Ugly hack, need to make a special layer for the Tutorial to not interrupt
 	-- automatic sizing of the main SessionView
@@ -460,25 +446,19 @@ local function MainGuiViewport(props: {
 		BackgroundTransparency = 1,
 		[React.Tag] = "MainWindow",
 	}, {
-		Content = if props.GuiState == "active"
+		Content = if state.Mode == "active"
 			then e(ScrollableSessionView, {
 				Config = props.Config,
-				CurrentSettings = props.CurrentSettings,
-				UpdatedSettings = props.UpdatedSettings,
-				HandleAction = props.HandleAction,
-				Panelized = false,
+				State = state,
 			}, props.children)
 			else e(EmptySessionView, {
 				Config = props.Config,
-				CurrentSettings = props.CurrentSettings,
-				UpdatedSettings = props.UpdatedSettings,
-				Panelized = false,
-				HandleAction = props.HandleAction,
+				State = state,
 			}),
 		ActualTutorialGui = showTutorial and e(TutorialGui, {
 			ClickedDone = function()
-				props.CurrentSettings.DoneTutorial = true
-				props.UpdatedSettings()
+				state.Settings.DoneTutorial = true
+				state.UpdatedSettings()
 			end,
 		}),
 		HelpDisplay = e(HelpGui.HelpDisplay, {
@@ -538,17 +518,15 @@ local function InactiveView(props: {
 end
 
 local function MainGuiPanelized(props: {
-	GuiState: Types.PluginGuiMode,
-	CurrentSettings: Types.PluginGuiSettings,
-	UpdatedSettings: () -> (),
-	HandleAction: (string) -> (),
+	State: Types.PluginGuiState,
 	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 }): React.ReactNode
-	if props.GuiState == "inactive" then
+	local state = props.State
+	if state.Mode == "inactive" then
 		return e(InactiveView, {
 			OnActivate = function()
-				props.HandleAction("reset")
+				state.HandleAction("reset")
 			end,
 			PluginName = props.Config.PluginName,
 		})
@@ -565,20 +543,14 @@ local function MainGuiPanelized(props: {
 				PaddingBottom = UDim.new(0, 4),
 				PaddingTop = UDim.new(0, 4),
 			}),
-			Content = if props.GuiState == "active"
+			Content = if state.Mode == "active"
 				then e(SessionView, {
 					Config = props.Config,
-					CurrentSettings = props.CurrentSettings,
-					UpdatedSettings = props.UpdatedSettings,
-					HandleAction = props.HandleAction,
-					Panelized = true,
+					State = state,
 				}, props.children)
 				else e(EmptySessionView, {
 					Config = props.Config,
-					CurrentSettings = props.CurrentSettings,
-					UpdatedSettings = props.UpdatedSettings,
-					Panelized = true,
-					HandleAction = props.HandleAction,
+					State = state,
 				}, props.children),
 			HelpDisplay = e(HelpGui.HelpDisplay, {
 				Panelized = true,
@@ -588,24 +560,18 @@ local function MainGuiPanelized(props: {
 end
 
 local function PluginGui(props: {
-	GuiState: Types.PluginGuiMode,
-	CurrentSettings: Types.PluginGuiSettings,
-	UpdatedSettings: () -> (),
-	HandleAction: (string) -> (),
-	Panelized: boolean,
+	State: Types.PluginGuiState,
 	Config: Types.PluginGuiConfig,
 	children: {[string]: React.ReactNode}?,
 })
+	local state = props.State
 	return e(HelpGui.Provider, {
-		CurrentSettings = props.CurrentSettings,
-		UpdatedSettings = props.UpdatedSettings,
+		CurrentSettings = state.Settings,
+		UpdatedSettings = state.UpdatedSettings,
 	}, {
-		Viewport = e(props.Panelized and MainGuiPanelized or MainGuiViewport, {
+		Viewport = e(state.Panelized and MainGuiPanelized or MainGuiViewport, {
 			Config = props.Config,
-			GuiState = props.GuiState,
-			CurrentSettings = props.CurrentSettings,
-			UpdatedSettings = props.UpdatedSettings,
-			HandleAction = props.HandleAction,
+			State = state,
 		}, props.children),
 	})
 end
