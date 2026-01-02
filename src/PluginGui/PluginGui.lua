@@ -24,7 +24,7 @@ local function SessionTopInfoRow(props: {
 	LayoutOrder: number?,
 	ShowHelpToggle: boolean,
 	Panelized: boolean,
-	PluginName: string,
+	Config: Types.PluginGuiConfig,
 	HandleAction: (string) -> (),
 })
 	local helpContext = HelpGui.use()
@@ -34,7 +34,7 @@ local function SessionTopInfoRow(props: {
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		LayoutOrder = props.LayoutOrder,
-		BackgroundTransparency = 1
+		BackgroundTransparency = 1,
 	}, {
 		Padding = e("UIPadding", {
 			PaddingBottom = UDim.new(0, 0),
@@ -59,7 +59,8 @@ local function SessionTopInfoRow(props: {
 			end,
 		}),
 		DragText = not props.Panelized and e("TextLabel", {
-			AutomaticSize = Enum.AutomaticSize.XY,
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(0, 26),
 			BackgroundTransparency = 1,
 			TextColor3 = Colors.WHITE,
 			Text = "::",
@@ -93,30 +94,36 @@ local function SessionTopInfoRow(props: {
 			end,
 		}),
 		PluginNameLabel = e("TextLabel", {
+			Size = UDim2.fromOffset(0, 28),
 			BackgroundTransparency = 1,
-			AutomaticSize = Enum.AutomaticSize.Y,
 			TextColor3 = Colors.WHITE,
 			RichText = true,
-			Text = stHovered and "by stravant" or `<i>{props.PluginName}</i>`,
+			Text = stHovered and "by stravant" or `<i>{props.Config.PluginName}</i>`,
 			Font = Enum.Font.SourceSansBold,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			TextSize = stHovered and 24 or 26,
+			TextScaled = true,
 			LayoutOrder = 3,
 		}, {
 			Flex = e("UIFlexItem", {
 				FlexMode = Enum.UIFlexMode.Grow,
 			}),
+			Padding = e("UIPadding", {
+				PaddingRight = UDim.new(0, 3),
+			}),
 		}),
 		HelpPart = props.ShowHelpToggle and e("Frame", {
-			Size = helpContext.HaveHelp and UDim2.fromOffset(76, 0) or UDim2.fromOffset(42, 0),
+			Size = helpContext.HaveHelp and UDim2.fromOffset(70, 0) or UDim2.fromOffset(38, 0),
 			BackgroundTransparency = 1,
 			AutomaticSize = Enum.AutomaticSize.Y,
 			LayoutOrder = 4,
 		}, {
+			Padding = e("UIPadding", {
+				PaddingTop = UDim.new(0, 4),
+			}),
 			ToggleHelp = e(OperationButton, {
 				Text = helpContext.HaveHelp and "Hide Help" or "Help",
 				Color = Colors.ACTION_BLUE,
-				Height = 24,
+				Height = 22,
 				OnClick = function()
 					helpContext.SetHaveHelp(not helpContext.HaveHelp)
 				end,
@@ -240,7 +247,7 @@ local function SessionView(props: {
 			LayoutOrder = nextOrder(),
 			ShowHelpToggle = true,
 			Panelized = true,
-			PluginName = props.Config.PluginName,
+			Config = props.Config,
 			HandleAction = state.HandleAction,
 		}),
 		Content = e("Frame", {
@@ -281,7 +288,7 @@ local function EmptySessionView(props: {
 			ShowHelpToggle = false,
 			HandleAction = state.HandleAction,
 			Panelized = state.Panelized,
-			PluginName = props.Config.PluginName,
+			Config = props.Config,
 		}),
 		InfoLabel = e("TextLabel", {
 			Size = UDim2.new(1, 0, 0, 120),
@@ -339,7 +346,7 @@ local function ScrollableSessionView(props: {
 	local state = props.State
 	local dragFunction = createBeginDragFunction(state.Settings, state.UpdatedSettings)
 	local currentDisplaySize, setCurrentDisplaySize = React.useState(300)
-	local HEADER_SIZE_EXTRA = 36
+	local HEADER_SIZE_EXTRA = 28
 	return e("ImageButton", {
 		Size = UDim2.new(1, 0, 0, currentDisplaySize + state.Settings.WindowHeightDelta),
 		BackgroundTransparency = 0,
@@ -360,7 +367,7 @@ local function ScrollableSessionView(props: {
 				ShowHelpToggle = not state.Panelized,
 				HandleAction = state.HandleAction,
 				Panelized = state.Panelized,
-				PluginName = props.Config.PluginName,
+				Config = props.Config,
 			}),
 			Scroll = e("ScrollingFrame", {
 				Size = UDim2.new(1, 0, 0, 0),
