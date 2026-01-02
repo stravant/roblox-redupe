@@ -1,9 +1,11 @@
 --!strict
-local Plugin = script.Parent.Parent.Parent
+local Plugin = script.Parent.Parent
 local Packages = Plugin.Packages
 
 local React = require(Packages.React)
 local e = React.createElement
+
+local PluginGuiTypes = require("./PluginGui/Types")
 
 type Cursor = {
 	Image: number,
@@ -322,10 +324,7 @@ local function runTutorial(image: ImageLabel)
 	end
 end
 
-local function TutorialGui(props: {
-	LayoutOrder: number?,
-	ClickedDone: () -> (),
-})
+local function TutorialGui(props: PluginGuiTypes.TutorialElementProps)
 	-- Run the tutorial in the tutorial frame using imperative code
 	local ref = React.createRef()
 	React.useEffect(function()

@@ -7,7 +7,6 @@ local React = require(Packages.React)
 
 local Colors = require("./Colors")
 local HelpGui = require("./HelpGui")
-local TutorialGui = require("./TutorialGui")
 local OperationButton = require("./OperationButton")
 local Types = require("./Types")
 
@@ -455,7 +454,7 @@ local function MainGuiViewport(props: {
 				Config = props.Config,
 				State = state,
 			}),
-		ActualTutorialGui = showTutorial and e(TutorialGui, {
+		ActualTutorialGui = showTutorial and e(props.Config.TutorialElement, {
 			ClickedDone = function()
 				state.Settings.DoneTutorial = true
 				state.UpdatedSettings()

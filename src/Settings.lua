@@ -17,6 +17,7 @@ export type RedupeSettings = PluginGuiTypes.PluginGuiSettings & {
 	ResizeAlign: boolean,
 }
 
+
 local function loadSettings(plugin: Plugin): RedupeSettings
 	-- Placeholder for loading state logic
 	local raw = plugin:GetSetting(kSettingsKey) or {}
@@ -43,7 +44,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
 		DoneTutorial = if raw.DoneTutorial ~= nil then raw.DoneTutorial else false,
 		ResizeAlign = if raw.ResizeAlign ~= nil then raw.ResizeAlign else true,
-		WindowHeightDelta = 0 --if raw.WindowHeightDelta ~= nil then raw.WindowHeightDelta else 0,
+		WindowHeightDelta = if raw.WindowHeightDelta ~= nil then raw.WindowHeightDelta else 0,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)

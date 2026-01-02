@@ -14,6 +14,7 @@ local PluginGui = require("./PluginGui/PluginGui")
 local OperationButton = require("./PluginGui/OperationButton")
 local Settings = require("./Settings")
 local PluginGuiTypes = require("./PluginGui/Types")
+local TutorialGui = require("./TutorialGui")
 
 local e = React.createElement
 
@@ -536,6 +537,7 @@ end
 local REDUPE_CONFIG: PluginGuiTypes.PluginGuiConfig = {
 	PluginName = "Redupe",
 	PendingText = "Select at least one Part, Model, or Folder to duplicate.\nThen drag the handles to add or configure duplicates and hit Place to confirm.",
+	TutorialElement = TutorialGui,
 }
 
 local function RedupeGui(props: {
