@@ -3,6 +3,7 @@
 Plugin to create repeated geometry in Roblox Studio by dragging handles.
 
 * [Functionality Demonstration Video on YouTube](https://www.youtube.com/watch?v=y9veFCNB-hM)
+* [Feedback DevForum thread](https://devforum.roblox.com/t/redupe-v10-studio-plugin-create-arrays-of-duplicates-by-dragging/4194569)
 * [Roblox Creator Store Link](https://create.roblox.com/store/asset/73064993918325/Stravant-Redupe)
 
 # Architecture
