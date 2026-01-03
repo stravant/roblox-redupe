@@ -129,33 +129,6 @@ function HelpGui.BasicTooltip(props: {
 	HelpRichText: string,
 	LayoutOrder: number?,
 })
-	local children = {
-		Padding = e("UIPadding", {
-			PaddingBottom = UDim.new(0, 4),
-			PaddingTop = UDim.new(0, 2),
-			PaddingLeft = UDim.new(0, 4),
-			PaddingRight = UDim.new(0, 4),
-		}),
-		Corner = e("UICorner", {
-			CornerRadius = UDim.new(0, 4),
-		}),
-		Stroke = e("UIStroke", {
-			Color = WHITE,
-			Thickness = 1,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		}),
-	} :: { [any]: React.ReactNode }
-	-- Add shadow
-	for i = 1, 8 do
-		children["Shadow"..tostring(i)] = e("UIStroke", {
-			Color = DARK_RED,
-			Thickness = 1,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Transparency = i / 9,
-			BorderOffset = UDim.new(0, i),
-		})
-	end
-
 	return e("TextLabel", {
 		Size = UDim2.fromOffset(200, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -168,7 +141,24 @@ function HelpGui.BasicTooltip(props: {
 		Font = Enum.Font.SourceSans,
 		TextSize = 16,
 		LayoutOrder = props.LayoutOrder,
-	}, children)
+	}, {
+		Padding = e("UIPadding", {
+			PaddingBottom = UDim.new(0, 10),
+			PaddingTop = UDim.new(0, 10),
+			PaddingLeft = UDim.new(0, 12),
+			PaddingRight = UDim.new(0, 12),
+		}),
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 8),
+		}),
+		Stroke = e("UIStroke", {
+			Color = DARK_RED,
+			Thickness = 2,
+			ZIndex = 2,
+			BorderOffset = UDim.new(0, -6),
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}),
+	})
 end
 
 function HelpGui.HelpDisplay(props: {
