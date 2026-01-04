@@ -1,4 +1,6 @@
 Prio Features
+* Should use JointMaker to not have joints cause problems when ResizeAligning
+* Update QuickStairs to have Redupe inside of it
 * Allow specifying a random amount of offset per axis
 * Only extrude parts that make sense to extrude?
 
