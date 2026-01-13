@@ -376,6 +376,7 @@ local function ScrollableSessionView(props: {
 				BackgroundTransparency = 1,
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				ScrollBarThickness = 0,
+				Active = false,
 				LayoutOrder = 2,
 			}, {
 				Flex = e("UIFlexItem", {
@@ -544,6 +545,7 @@ local function MainGuiPanelized(props: {
 			BackgroundColor3 = Colors.BLACK,
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			ScrollBarThickness = 0,
+			Active = false,
 		}, {
 			Padding = e("UIPadding", {
 				PaddingBottom = UDim.new(0, 4),
