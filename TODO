@@ -13,7 +13,3 @@ Features
 * Make modulo 90 check more generous, allowing one axis off
 * Rotate handles don't allow 90 degree rotation in one of the directions
 * Resizing models non-uniformly
-
-Bugs
-* UIPath breaks event handling for containing ScrollingFrame (Can't repro with minimal example??)
-* Resize + stale CanvasGroup chip results in missing content
