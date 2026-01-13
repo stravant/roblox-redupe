@@ -122,8 +122,8 @@ local function NumberInput(props: {
 				Color = Colors.ACTION_BLUE,
 				Thickness = 1,
 				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			}) or nil,
-			ChipColor = (props.ChipColor and not hasFocus) and e("CanvasGroup", {
+			}),
+			ChipColor = props.ChipColor and not hasFocus and e("CanvasGroup", {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 			}, {
@@ -134,7 +134,7 @@ local function NumberInput(props: {
 				Corner = e("UICorner", {
 					CornerRadius = UDim.new(0, 4),
 				}),
-			}) or nil,
+			}),
 		}),
 	})
 end
