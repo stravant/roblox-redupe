@@ -10,6 +10,8 @@ local WEDGE_NAME_SUFFIX = "FillW"
 
 local MIN_ZFIGHT_AREA = 0.5
 
+local copyInstanceProperties = require("./copyInstanceProperties")
+
 --[[
 	The return value `t` is a number such that `r1o + t * r1d` is the point of
 	closest approach on the first ray between the two rays specified by the
@@ -123,6 +125,22 @@ local function getPartSizeIncludingSpecialMeshScale(part: Part): (Vector3, Vecto
 	end
 end
 
+-- Make a wedge as similar to a given BasePart as possible
+local function makeWedge(a: BasePart)
+	if a:IsA("Part") then
+		local copy = Instance.fromExisting(a)
+		copy.Shape = Enum.PartType.Wedge
+		copy.PivotOffset = CFrame.identity
+		return copy
+	else
+		local wedge = Instance.new("Part")
+		copyInstanceProperties(a, wedge)
+		wedge.Shape = Enum.PartType.Wedge
+		wedge.PivotOffset = CFrame.identity
+		return wedge
+	end
+end
+
 local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, resultList: {Instance}?)
 	if not isCandidateForResizing(a, aBasis, axis) then
 		return
@@ -212,10 +230,8 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 
 	if canCreateWedge then
 		local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideA)
-		local wedgeA = a:Clone()
+		local wedgeA = makeWedge(a)
 		wedgeA.Name ..= WEDGE_NAME_SUFFIX
-		wedgeA.Shape = Enum.PartType.Wedge
-		wedgeA:ClearAllChildren()
 		wedgeA.CFrame = CFrame.fromMatrix(
 			a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeightA * 0.5),
 			closestUnitVector(a.CFrame, desiredZVectorForA):Cross(aWorldAxis),
@@ -231,10 +247,8 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		end
 
 		local desiredZVectorForB = b.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideB)
-		local wedgeB = b:Clone()
+		local wedgeB = makeWedge(b)
 		wedgeB.Name ..= WEDGE_NAME_SUFFIX
-		wedgeB.Shape = Enum.PartType.Wedge
-		wedgeB:ClearAllChildren()
 		wedgeB.CFrame = CFrame.fromMatrix(
 			b.Position - bWorldAxis * (bBaseOuterLength + wedgeHeightB * 0.5),
 			-closestUnitVector(b.CFrame, desiredZVectorForB):Cross(bWorldAxis),
