@@ -1,0 +1,10 @@
+[package]
+name = "stravant/draggerschemacore"
+description = "Copy of DraggerSchemaCore from Roblox Studio"
+version = "0.1.5"
+license = "None"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+DraggerFramework = "stravant/draggerframework@0.1.4"

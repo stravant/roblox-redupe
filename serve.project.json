@@ -1,0 +1,21 @@
+{
+	"name": "ReDupe Development",
+	"tree": {
+		"$className": "DataModel",
+		"ServerStorage": {
+			"$className": "ServerStorage",
+			"RedupePlugin": {
+				"$className": "Folder",
+				"Src": {
+					"$path": "src"
+				},
+				"Packages": {
+					"$path": "Packages"
+				},
+				"Loader": {
+					"$path": "loader.server.lua"
+				}
+			}
+		}
+	}
+}

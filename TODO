@@ -1,0 +1,15 @@
+Prio Features
+* Should use JointMaker to not have joints cause problems when ResizeAligning
+* Update QuickStairs to have Redupe inside of it
+* Allow specifying a random amount of offset per axis
+* Only extrude parts that make sense to extrude?
+
+Features
+* Visual description of multiply snap by count
+* Somehow support extrude
+* Line up the pixels correctly
+* Figure out how to move Rotation back from settings to draggerContext
+* Don't use wedges for ResizeAlign when angle is modulo 90
+* Make modulo 90 check more generous, allowing one axis off
+* Rotate handles don't allow 90 degree rotation in one of the directions
+* Resizing models non-uniformly
