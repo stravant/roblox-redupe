@@ -9,6 +9,7 @@ local WEDGE_TAG = "RD_W"
 local WEDGE_NAME_SUFFIX = "FillW"
 
 local MIN_ZFIGHT_AREA = 0.5
+local SPANS_FULL_WIDTH_EPSILON = 0.051
 
 local copyInstanceProperties = require("./copyInstanceProperties")
 
@@ -64,14 +65,14 @@ local function isCandidateForResizing(a: Part, aBasis: ResizeAlignInfo, axis: Ve
 	-- Size must match
 	local sizeInBasis = aBasis.CFrame:VectorToObjectSpace(a.CFrame:VectorToWorldSpace(a.Size)):Abs()
 	local size = sizeInBasis:Dot(axis)
-	if math.abs(size - aBasis.Size:Dot(axis)) > 0.01 then -- Deliberately a bit loose of an epsilon here
+	if math.abs(size - aBasis.Size:Dot(axis)) > SPANS_FULL_WIDTH_EPSILON * 2 then -- Deliberately a bit loose of an epsilon here
 		return false
 	end
 
 	-- Position must be centered
 	local positionInBounds = cframeInBasis.Position - aBasis.Offset
 	local position = positionInBounds:Dot(axis)
-	if math.abs(position) > 0.01 then
+	if math.abs(position) > SPANS_FULL_WIDTH_EPSILON then
 		return false
 	end
 
