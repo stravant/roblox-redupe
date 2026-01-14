@@ -5,8 +5,8 @@ type ResizeAlignInfo = {
 }
 
 local RESIZE_TAG = "RD_S"
-local WEDGE_TAG = "RD_W"
-local WEDGE_NAME_SUFFIX = "FillW"
+local FILL_TAG = "RD_W"
+local FILL_NAME_SUFFIX = "FillW"
 
 local MIN_ZFIGHT_AREA = 0.5
 local SPANS_FULL_WIDTH_EPSILON = 0.051
@@ -76,6 +76,20 @@ local function isCandidateForResizing(a: Part, aBasis: ResizeAlignInfo, axis: Ve
 		return false
 	end
 
+	-- Checks for appropriate part shape
+	if a:IsA("Part") then
+		if a.Shape == Enum.PartType.Ball then
+			-- Nothing to do for balls
+			return false
+		elseif a.Shape == Enum.PartType.Cylinder then
+			-- Check for correct orientation (can only resize along cylinder axis)
+			local cylinderAxis = aBasis.CFrame:VectorToObjectSpace(a.CFrame.XVector):Abs()
+			if not cylinderAxis:FuzzyEq(axis) then
+				return false
+			end
+		end
+	end
+
 	return true
 end
 
@@ -111,7 +125,7 @@ end
 local function maybeRemoveWedgeAtLocation(location: Vector3, expectedName: string)
 	local found = workspace:GetPartBoundsInRadius(location, 0.001)
 	for _, part in found do
-		if part:HasTag(WEDGE_TAG) and part.Name == expectedName then
+		if part:HasTag(FILL_TAG) and part.Name == expectedName then
 			part.Parent = nil
 		end
 	end
@@ -140,6 +154,26 @@ local function makeWedge(a: BasePart)
 		wedge.PivotOffset = CFrame.identity
 		return wedge
 	end
+end
+
+local function makeBall(a: BasePart)
+	local wedge = makeWedge(a)
+	wedge.Shape = Enum.PartType.Ball
+	return wedge
+end
+
+local function smallestNonZeroComponent(v: Vector3): number
+	local best = math.huge
+	if v.X > 0.01 then
+		best = v.X
+	end
+	if v.Y > 0.01 and v.Y < best then
+		best = v.Y
+	end
+	if v.Z > 0.01 and v.Z < best then
+		best = v.Z
+	end
+	return best
 end
 
 local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, resultList: {Instance}?)
@@ -216,9 +250,18 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	local zFightAreaB = wedgeHeightB * mainOffset * 0.5
 	local zFightArea = math.max(zFightAreaA, zFightAreaB)
 
-	local canCreateWedge = not directions:FuzzyEq(Vector3.zero) and zFightArea > MIN_ZFIGHT_AREA
-	local aDeltaLength = (canCreateWedge and aBaseOuterLength or aBaseInnerLength) - aOriginalLength * 0.5
-	local bDeltaLength = (canCreateWedge and bBaseOuterLength or bBaseInnerLength) - bOriginalLength * 0.5
+	-- Always create wedge if it's a cylinder (we already checked that it's the right orientation
+	-- in isCandidateForResizing)
+	local enoughZFightForWedge = not directions:FuzzyEq(Vector3.zero) and zFightArea > MIN_ZFIGHT_AREA
+	local isCylinder = a:IsA("Part") and a.Shape == Enum.PartType.Cylinder
+	local createFill = enoughZFightForWedge or isCylinder
+
+	local aDeltaLength = (createFill and aBaseOuterLength or aBaseInnerLength) - aOriginalLength * 0.5
+	local bDeltaLength = (createFill and bBaseOuterLength or bBaseInnerLength) - bOriginalLength * 0.5
+	if isCylinder then
+		aDeltaLength += wedgeHeightA * 0.5
+		bDeltaLength += wedgeHeightB * 0.5
+	end
 
 	-- Remove any fill wedges that were making this side of the model whole
 	-- before from a previous redupe operation. This will happen if you redupe
@@ -226,42 +269,57 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	-- unpaired resizealigned edge with wedges.
 	local checkForWedgeToRemoveLocationA = a.Position + aWorldAxis * aOriginalLength * 0.5
 	local checkForWedgeToRemoveLocationB = b.Position - bWorldAxis * bOriginalLength * 0.5
-	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationA, a.Name .. WEDGE_NAME_SUFFIX)
-	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationB, b.Name .. WEDGE_NAME_SUFFIX)
+	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationA, a.Name .. FILL_NAME_SUFFIX)
+	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationB, b.Name .. FILL_NAME_SUFFIX)
 
-	if canCreateWedge then
-		local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideA)
-		local wedgeA = makeWedge(a)
-		wedgeA.Name ..= WEDGE_NAME_SUFFIX
-		wedgeA.CFrame = CFrame.fromMatrix(
-			a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeightA * 0.5),
-			closestUnitVector(a.CFrame, desiredZVectorForA):Cross(aWorldAxis),
-			aWorldAxis
-		) + aWorldVisualOffset
-		local aPerSizeInBasis = aBasis.CFrame:VectorToObjectSpace(a.CFrame:VectorToWorldSpace(sizingPerpToAxis * aSize))
-		local aSizeInBasis = axis * wedgeHeightA + aPerSizeInBasis
-		wedgeA.Size = wedgeA.CFrame:VectorToObjectSpace(aBasis.CFrame:VectorToWorldSpace(aSizeInBasis)):Abs()
-		wedgeA:AddTag(WEDGE_TAG)
-		wedgeA.Parent = a.Parent
-		if resultList then
-			table.insert(resultList, wedgeA)
-		end
+	if createFill then
+		if isCylinder then
+			-- For cylinders fill intersection with one ball
+			local ball = makeBall(a)
+			ball.Name ..= FILL_NAME_SUFFIX
+			ball.CFrame = CFrame.fromMatrix(
+				a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeightA * 0.5),
+				closestUnitVector(a.CFrame, -offsetPerpCorrectSideA):Cross(aWorldAxis),
+				aWorldAxis
+			) + aWorldVisualOffset
+			ball.Size = Vector3.one * smallestNonZeroComponent(sizingPerpToAxis * aSize)
+			ball:AddTag(FILL_TAG)
+			ball.Parent = a.Parent
+		else
+			-- For boxes fill intersection with two wedges
+			local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideA)
+			local wedgeA = makeWedge(a)
+			wedgeA.Name ..= FILL_NAME_SUFFIX
+			wedgeA.CFrame = CFrame.fromMatrix(
+				a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeightA * 0.5),
+				closestUnitVector(a.CFrame, desiredZVectorForA):Cross(aWorldAxis),
+				aWorldAxis
+			) + aWorldVisualOffset
+			local aPerSizeInBasis = aBasis.CFrame:VectorToObjectSpace(a.CFrame:VectorToWorldSpace(sizingPerpToAxis * aSize))
+			local aSizeInBasis = axis * wedgeHeightA + aPerSizeInBasis
+			wedgeA.Size = wedgeA.CFrame:VectorToObjectSpace(aBasis.CFrame:VectorToWorldSpace(aSizeInBasis)):Abs()
+			wedgeA:AddTag(FILL_TAG)
+			wedgeA.Parent = a.Parent
+			if resultList then
+				table.insert(resultList, wedgeA)
+			end
 
-		local desiredZVectorForB = b.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideB)
-		local wedgeB = makeWedge(b)
-		wedgeB.Name ..= WEDGE_NAME_SUFFIX
-		wedgeB.CFrame = CFrame.fromMatrix(
-			b.Position - bWorldAxis * (bBaseOuterLength + wedgeHeightB * 0.5),
-			-closestUnitVector(b.CFrame, desiredZVectorForB):Cross(bWorldAxis),
-			-bWorldAxis
-		) + bWorldVisualOffset
-		local bPerSizeInBasis = bBasis.CFrame:VectorToObjectSpace(b.CFrame:VectorToWorldSpace(sizingPerpToAxis * bSize))
-		local bSizeInBasis = axis * wedgeHeightB + bPerSizeInBasis
-		wedgeB.Size = wedgeB.CFrame:VectorToObjectSpace(bBasis.CFrame:VectorToWorldSpace(bSizeInBasis)):Abs()
-		wedgeB:AddTag(WEDGE_TAG)
-		wedgeB.Parent = b.Parent
-		if resultList then
-			table.insert(resultList, wedgeB)
+			local desiredZVectorForB = b.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideB)
+			local wedgeB = makeWedge(b)
+			wedgeB.Name ..= FILL_NAME_SUFFIX
+			wedgeB.CFrame = CFrame.fromMatrix(
+				b.Position - bWorldAxis * (bBaseOuterLength + wedgeHeightB * 0.5),
+				-closestUnitVector(b.CFrame, desiredZVectorForB):Cross(bWorldAxis),
+				-bWorldAxis
+			) + bWorldVisualOffset
+			local bPerSizeInBasis = bBasis.CFrame:VectorToObjectSpace(b.CFrame:VectorToWorldSpace(sizingPerpToAxis * bSize))
+			local bSizeInBasis = axis * wedgeHeightB + bPerSizeInBasis
+			wedgeB.Size = wedgeB.CFrame:VectorToObjectSpace(bBasis.CFrame:VectorToWorldSpace(bSizeInBasis)):Abs()
+			wedgeB:AddTag(FILL_TAG)
+			wedgeB.Parent = b.Parent
+			if resultList then
+				table.insert(resultList, wedgeB)
+			end
 		end
 	end
 
@@ -290,7 +348,7 @@ local function filterChildList(children: {Instance}): {Instance}
 		if not ch.Archivable then
 			continue
 		end
-		if ch:HasTag(WEDGE_TAG) then
+		if ch:HasTag(FILL_TAG) then
 			continue
 		end
 		table.insert(filteredList, ch)
