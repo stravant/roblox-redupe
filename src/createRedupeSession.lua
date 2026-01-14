@@ -547,6 +547,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		-- Place using offsets
 		local runningPosition = draggerContext.StartCFrame
 		local lastCopy = targets
+		local lastBasis = {
+			CFrame = center,
+			Offset = boundsOffset,
+			Size = size,
+		}
 		local resultsPerTarget = {}
 		for i = 1, #targets do
 			resultsPerTarget[i] = {}
@@ -555,33 +560,15 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			if i >= redundantLimit then
 				break
 			end
-			local priorRunningPosition = runningPosition
 			runningPosition *= placement.Offset
-			local previewResults = ghostPreview.create(not done, runningPosition, placement.Size, draggerContext.PrimaryAxis)
+			local thisCopy = ghostPreview.create(not done, runningPosition, placement.Size, draggerContext.PrimaryAxis)
+			local thisInfo = {
+				CFrame = runningPosition,
+				Offset = boundsOffset,
+				Size = placement.Size,
+			}
 
 			if doResizeAlign and done then
-				-- Do resizealigning. TODO: Decide when to try this or not.
-				local lastBasis;
-				if i > 1 then
-					local lastPlacement = placements[i - 1]
-					lastBasis = {
-						CFrame = priorRunningPosition,
-						Offset = boundsOffset,
-						Size = lastPlacement.Size,
-					}
-				else
-					lastBasis = {
-						CFrame = center,
-						Offset = boundsOffset,
-						Size = size,
-					}
-				end
-				local thisCopy = previewResults
-				local thisInfo = {
-					CFrame = runningPosition,
-					Offset = boundsOffset,
-					Size = placement.Size,
-				}
 				local resizeAlignResults = resizeAlignPairs(lastCopy, thisCopy, lastBasis, thisInfo, draggerContext.PrimaryAxis)
 				for j, resizeAlignResult in resizeAlignResults do
 					for _, resultInstance in resizeAlignResult do
@@ -592,16 +579,28 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 
 			-- This must insert the actual copy after any auxiliary instances
 			-- created by resize align.
-			for j, resultInstance in previewResults do
+			for j, resultInstance in thisCopy do
 				table.insert(resultsPerTarget[j], resultInstance)
 			end
-			lastCopy = previewResults
+			lastCopy = thisCopy
+			lastBasis = thisInfo
 
 			if os.clock() > cutoffTime then
 				warn("Redupe: Too many copies being created, operation aborted to prevent hang.")
 				ghostPreview.trim()
 				return
 			end
+		end
+
+		-- If we came full circle, resizeAlign the last copy to the first
+		if doResizeAlign and done and #placements >= redundantLimit - 1 then
+			local firstCopy = targets
+			local firstBasis = {
+				CFrame = center,
+				Offset = boundsOffset,
+				Size = size,
+			}
+			resizeAlignPairs(lastCopy, firstCopy, lastBasis, firstBasis, draggerContext.PrimaryAxis)
 		end
 
 		ghostPreview.trim()
