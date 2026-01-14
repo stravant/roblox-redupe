@@ -154,9 +154,10 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- Get the bounds
 	local info = DraggerSchemaCore.SelectionInfo.new(draggerContext, targets)
 	local center, boundsOffset, size = info:getLocalBoundingBox()
-	if previousState then
-		--size = previousState.EndSize
-	end
+
+	-- Don't need a bounds offset, just a simple bounding box
+	center *= CFrame.new(boundsOffset)
+	boundsOffset = Vector3.zero
 
 	-- If we have a previous center, try to tween the camera by
 	-- the difference
@@ -169,7 +170,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	-- preserve the copy count.
 	local lastCopiesUsed: number? = nil
 
-	local ghostPreview = createGhostPreview(targets, center, boundsOffset, size)
+	local ghostPreview = createGhostPreview(targets, center, size)
 
 	draggerContext.SetDraggingFunction = function(_isDragging)
 	end
@@ -556,7 +557,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			end
 			local priorRunningPosition = runningPosition
 			runningPosition *= placement.Offset
-			local previewResults = ghostPreview.create(not done, runningPosition, placement.Size)
+			local previewResults = ghostPreview.create(not done, runningPosition, placement.Size, draggerContext.PrimaryAxis)
 
 			if doResizeAlign and done then
 				-- Do resizealigning. TODO: Decide when to try this or not.
@@ -654,12 +655,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 								Vector3.zero,
 								Vector3.zero
 						end
-						-- Offset the position the rotate handles are shown around opposite to the offset
-						-- so that the rotate handles don't overlap the other handles excessively.
-						local offset = draggerContext.StartCFrame:ToObjectSpace(draggerContext.EndCFrame).Position * draggerContext.PrimaryAxis
-						local offsetDirection = -offset.Unit
-						local baseCFrame = draggerContext.StartCFrame * CFrame.new(offsetDirection * ((size) + Vector3.one * 4))
-						baseCFrame = draggerContext.StartCFrame -- Offset isn't working well
+						local baseCFrame = draggerContext.StartCFrame
 						return baseCFrame * currentSettings.Rotation,
 							Vector3.zero,
 							Vector3.zero

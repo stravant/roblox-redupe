@@ -1,4 +1,5 @@
 Prio Features
+* Save a ResizeAlign direction for parts (?)
 * Should use JointMaker to not have joints cause problems when ResizeAligning
 * Update QuickStairs to have Redupe inside of it
 * Allow specifying a random amount of offset per axis
@@ -12,7 +13,6 @@ Features
 * Don't use wedges for ResizeAlign when angle is modulo 90
 * Make modulo 90 check more generous, allowing one axis off
 * Rotate handles don't allow 90 degree rotation in one of the directions
-* Resizing models non-uniformly
 
 Bugs
 * UIPath breaks event handling for containing ScrollingFrame (Can't repro with minimal example??)
