@@ -600,7 +600,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				Offset = boundsOffset,
 				Size = size,
 			}
-			resizeAlignPairs(lastCopy, firstCopy, lastBasis, firstBasis, draggerContext.PrimaryAxis)
+			local alignResults = resizeAlignPairs(lastCopy, firstCopy, lastBasis, firstBasis, draggerContext.PrimaryAxis)
+			for j, resizeAlignResult in alignResults do
+				for _, resultInstance in resizeAlignResult do
+					table.insert(resultsPerTarget[j], resultInstance)
+				end
+			end
 		end
 
 		ghostPreview.trim()
