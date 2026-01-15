@@ -1,4 +1,5 @@
 --!strict
+--!native
 local DraggerService = game:GetService("DraggerService")
 local DraggerFramework = require("../Packages/DraggerFramework")
 local JointMaker = (require :: any)(DraggerFramework.Utility.JointMaker)
@@ -12,6 +13,8 @@ export type GhostPreview = {
 type OriginalSizeInfo = {
 	Size: Vector3,
 	CFrame: CFrame,
+	OriginalMeshScale: Vector3?,
+	DataModelMesh: DataModelMesh?,
 }
 type OriginalSizeMap = { [Instance]: OriginalSizeInfo }
 
@@ -65,8 +68,43 @@ local function enableJointsAndJoinToWorld(item: PoolItem)
 	end
 end
 
--- TODO: Handle PrimaryPart
--- TODO: Fall back to scale of model with lots of MeshParts or stuff like that?
+-- Returns the amount of size on the axis of interest in basis, and the "rest" of the size
+local function sizeToWorldSpace(basis: CFrame, axisOfInterest: Vector3, size: Vector3): (number, Vector3)
+	-- Take the amount of size on the axis, and leave the rest in rest
+	local xFactor = basis.XVector:Dot(axisOfInterest)
+	local sizeOnX = math.abs(xFactor) * size.X
+	local sizeOffX = (1 - math.abs(xFactor)) * size.X
+
+	local yFactor = basis.YVector:Dot(axisOfInterest)
+	local sizeOnY = math.abs(yFactor) * size.Y
+	local sizeOffY = (1 - math.abs(yFactor)) * size.Y
+
+	local zFactor = basis.ZVector:Dot(axisOfInterest)
+	local sizeOnZ = math.abs(zFactor) * size.Z
+	local sizeOffZ = (1 - math.abs(zFactor)) * size.Z
+
+	local onAxis = sizeOnX + sizeOnY + sizeOnZ
+	local rest = Vector3.new(sizeOffX, sizeOffY, sizeOffZ)
+	return onAxis, rest
+end
+
+local function sizeToObjectSpace(basis: CFrame, axisOfInterest: Vector3, sizeOnAxis: number): Vector3
+	local xFactor = basis.XVector:Dot(axisOfInterest)
+	local yFactor = basis.YVector:Dot(axisOfInterest)
+	local zFactor = basis.ZVector:Dot(axisOfInterest)
+
+	local totalFactor = math.abs(xFactor) + math.abs(yFactor) + math.abs(zFactor)
+	if totalFactor == 0 then
+		return Vector3.zero
+	end
+
+	local xPortion = (math.abs(xFactor) / totalFactor)
+	local yPortion = (math.abs(yFactor) / totalFactor)
+	local zPortion = (math.abs(zFactor) / totalFactor)
+
+	return Vector3.new(xPortion, yPortion, zPortion) * sizeOnAxis
+end
+
 local EXACTLY_CENTERED_DISAMBIGUATION = 0.01
 local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, original: OriginalSizeMap)
 	-- Find joints that need to be adjusted afterwards. We need to record 
@@ -88,6 +126,9 @@ local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, ori
 			if originalInfo then
 				part.Size = originalInfo.Size
 				part.CFrame = originalInfo.CFrame
+				if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
+					originalInfo.DataModelMesh.Scale = originalInfo.OriginalMeshScale
+				end
 			end
 		end
 	else
@@ -102,30 +143,41 @@ local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, ori
 			-- Info to scale from
 			local originalInfo = original[part]
 			if not originalInfo then
-				originalInfo = table.freeze({
+				local mesh = part:FindFirstChildWhichIsA("DataModelMesh")
+				local newInfo = table.freeze({
 					Size = part.Size,
 					CFrame = part.CFrame,
+					DataModelMesh = mesh,
+					OriginalMeshScale = if mesh then mesh.Scale else nil,
 				})
-				original[part] = originalInfo
+				original[part] = newInfo
+				originalInfo = newInfo
 			end
 
-			local originalCFrame = originalInfo.CFrame
-			local localCFrame = basis:ToObjectSpace(originalCFrame)
-			local worldSize = originalInfo.CFrame:VectorToWorldSpace(originalInfo.Size)
-			local localSize = basis:VectorToObjectSpace(worldSize):Abs()
+			-- Since the model is at origin, the raw part CFrame is already in local space
+			local localCFrame = originalInfo.CFrame
+			--local localSize = originalInfo.CFrame:VectorToWorldSpace(originalInfo.Size):Abs()
+			local localSize, restOfSize = sizeToWorldSpace(originalInfo.CFrame, extrudeAxis, originalInfo.Size)
 
-			local a = (localCFrame.Position + 0.5 * localSize):Dot(extrudeAxis) + EXACTLY_CENTERED_DISAMBIGUATION
-			local b = (localCFrame.Position - 0.5 * localSize):Dot(extrudeAxis) + EXACTLY_CENTERED_DISAMBIGUATION
+			--local a = (localCFrame.Position + 0.5 * localSize):Dot(extrudeAxis) + EXACTLY_CENTERED_DISAMBIGUATION
+			--local b = (localCFrame.Position - 0.5 * localSize):Dot(extrudeAxis) + EXACTLY_CENTERED_DISAMBIGUATION
+			local positionOnAxis = localCFrame.Position:Dot(extrudeAxis)
+			local halfSize = 0.5 * localSize
+			local a = positionOnAxis + halfSize + EXACTLY_CENTERED_DISAMBIGUATION
+			local b = positionOnAxis - halfSize + EXACTLY_CENTERED_DISAMBIGUATION
 			if a * b < 0 then
 				-- Spans zero, extrude
-				local newSize = localSize + extrudeAxis * extrudeAmount
-				local newSizeWorld = basis:VectorToWorldSpace(newSize)
-				part.Size = originalInfo.CFrame:VectorToObjectSpace(newSizeWorld):Abs()
+				-- local newSize = localSize + extrudeAxis * extrudeAmount
+				-- part.Size = originalInfo.CFrame:VectorToObjectSpace(newSize):Abs()
+				local newSize = sizeToObjectSpace(originalInfo.CFrame, extrudeAxis, localSize + extrudeAmount) + restOfSize
+				part.Size = newSize
+				if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
+					originalInfo.DataModelMesh.Scale = (newSize / originalInfo.Size) * originalInfo.OriginalMeshScale
+				end
 			else
-				-- TODO: Tiebreaker zero
 				local sign = math.sign(localCFrame.Position:Dot(extrudeAxis))
 				local motion = extrudeAxis * extrudeAmount * 0.5 * sign
-				part.CFrame = basis * (localCFrame + motion)
+				part.CFrame = localCFrame + motion
 			end
 		end
 	end
@@ -203,7 +255,7 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, size: V
 				copy.Archivable = false
 				if copy:IsA("Model") or copy:IsA("Folder") then
 					for _, descendant in copy:GetDescendants() do
-						if descendant:IsA("BasePart") then
+						if descendant:IsA("BasePart") and descendant.Transparency < 1 then
 							descendant.Transparency = GHOST_TRANSPARENCY
 						end
 					end
@@ -248,10 +300,9 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, size: V
 			local itemModel = item :: Model
 			local targetModel = target :: Model
 			local pivotInBasis = cframe:ToObjectSpace(targetModel:GetPivot())
-			local scalePivotInBasis = pivotInBasis.Rotation + pivotInBasis.Position
-			itemModel:PivotTo(pivotInBasis)
+			itemModel:PivotTo(CFrame.identity)
 			extrudeModel(itemModel, cframe, (targetSize - size), original)
-			itemModel:PivotTo(targetCFrame * scalePivotInBasis)
+			itemModel:PivotTo(targetCFrame * pivotInBasis)
 			return true
 		elseif target:IsA("BasePart") then
 			local itemPart = item :: BasePart
