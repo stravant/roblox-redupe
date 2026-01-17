@@ -1,6 +1,7 @@
 --[[
 	Scale tool implementation. Responsible for handle state and handle views.
 ]]
+local DraggerService = game:GetService("DraggerService")
 
 -- Libraries
 local Packages = script.Parent.Parent.Parent.Packages
@@ -318,7 +319,7 @@ function ExtrudeHandle:_getBoundingBoxColor()
 end
 
 function ExtrudeHandle:_getBoundingBoxThickness()
-	return self._draggerContext:getHoverLineThickness()
+	return DraggerService.HoverThickness / 2 * 0.08
 end
 
 function ExtrudeHandle:_shouldDrawBoundingBox()
