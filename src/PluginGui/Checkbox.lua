@@ -11,6 +11,8 @@ local function AutoButtonColorDarken(c: Color3): Color3
 	return c:Lerp(Colors.BLACK, 0.3)
 end
 
+local HEIGHT = 22
+
 local function Checkbox(props: {
 	Label: string,
 	Checked: boolean,
@@ -24,7 +26,7 @@ local function Checkbox(props: {
 	end
 
 	return e("Frame", {
-		Size = UDim2.new(1, 0, 0, 24),
+		Size = UDim2.new(1, 0, 0, HEIGHT),
 		BackgroundTransparency = 1,
 		LayoutOrder = props.LayoutOrder,
 	}, {
@@ -32,10 +34,10 @@ local function Checkbox(props: {
 			FillDirection = Enum.FillDirection.Horizontal,
 			HorizontalAlignment = Enum.HorizontalAlignment.Left,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 4),
+			Padding = UDim.new(0, 6),
 		}),
 		Label = e("TextButton", {
-			Size = UDim2.new(0, 0, 0, 24),
+			Size = UDim2.new(0, 0, 0, HEIGHT),
 			AutomaticSize = Enum.AutomaticSize.X,
 			Text = props.Label,
 			TextColor3 = Colors.WHITE,
@@ -56,7 +58,7 @@ local function Checkbox(props: {
 			end,
 		}),
 		CheckBox = e("TextButton", {
-			Size = UDim2.new(0, 24, 0, 24),
+			Size = UDim2.new(0, HEIGHT, 0, HEIGHT),
 			BackgroundColor3 = checkboxColor,
 			Text = if props.Checked then "✓" else "",
 			TextColor3 = Colors.WHITE,
