@@ -233,11 +233,24 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	local alignOuterPointB = b.CFrame:PointToWorldSpace(-offsetPerpCorrectSideB)
 	local alignInnerPointA = a.CFrame:PointToWorldSpace(offsetPerpCorrectSideA)
 	local alignInnerPointB = b.CFrame:PointToWorldSpace(offsetPerpCorrectSideB)
-	local aBaseOuterLength, aBaseInnerLength;
-	local bBaseOuterLength, bBaseInnerLength;
 
-	local copiesAreCloseToParallel = aWorldAxis:Cross(bWorldAxis).Magnitude < 0.01
-	if copiesAreCloseToParallel then
+	local good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
+	local good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
+	local good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
+	local good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
+	if not good1 or not good2 or not good3 or not good4 then
+		warn("Failed to intersect rays for resize-align?")
+		return
+	end
+
+	local aOriginalLength = (aSize * sizingAxis).Magnitude
+	local bOriginalLength = (b.Size * sizingAxis).Magnitude
+
+	-- First attempt at wedge heights via ray intersection
+	local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
+	local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
+
+	if wedgeHeightA < 0 or wedgeHeightB < 0 then
 		-- Bring A up to B rather than having them meet in the middle, will be almost
 		-- the same thing because the ends are already well aligned.
 		local basisSizeOnAxisA = (aBasis.Size:Dot(axis) * 0.5)
@@ -263,25 +276,13 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		local innerBToOther = intersectRayPlane(alignInnerPointB, -bWorldAxis, pointOnBasisA, aWorldAxis)
 		local innerBExtra = innerBToOther - innerBToSelf
 		bBaseInnerLength = innerBToSelf + 0.5 * innerBExtra
-	else
-		local good1, good2, good3, good4;
-		good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
-		good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
-		good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
-		good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
-		if not good1 or not good2 or not good3 or not good4 then
-			warn("Failed to intersect rays for resize-align?")
-			return
-		end
 	end
 
-	local aOriginalLength = (aSize * sizingAxis).Magnitude
-	local bOriginalLength = (b.Size * sizingAxis).Magnitude
-
-	local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
-	local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
+	-- Second attempt at wedge heights via plane intersection
+	wedgeHeightA = aBaseInnerLength - aBaseOuterLength
+	wedgeHeightB = bBaseInnerLength - bBaseOuterLength
 	if wedgeHeightA < 0 or wedgeHeightB < 0 then
-		warn("Negative wedge height in resize-align, you may see poor results")
+		warn("Failed to compute wedge heights for resize-align using either approach")
 		wedgeHeightA = math.max(0, wedgeHeightA)
 		wedgeHeightB = math.max(0, wedgeHeightB)
 	end
@@ -296,7 +297,8 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	-- in isCandidateForResizing)
 	local enoughZFightForWedge = not directions:FuzzyEq(Vector3.zero) and zFightArea > MIN_ZFIGHT_AREA
 	local isCylinder = a:IsA("Part") and a.Shape == Enum.PartType.Cylinder
-	local createFill = (enoughZFightForWedge or isCylinder) and not copiesAreCloseToParallel
+	local hasGoodWedgeHeights = wedgeHeightA > 0 and wedgeHeightB > 0
+	local createFill = (enoughZFightForWedge or isCylinder) and hasGoodWedgeHeights
 
 	local aDeltaLength = (createFill and aBaseOuterLength or aBaseInnerLength) - aOriginalLength * 0.5
 	local bDeltaLength = (createFill and bBaseOuterLength or bBaseInnerLength) - bOriginalLength * 0.5
