@@ -561,6 +561,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				break
 			end
 			runningPosition *= placement.Offset
+			runningPosition = runningPosition:Orthonormalize()
 			local thisCopy = ghostPreview.create(not done, runningPosition, placement.Size, draggerContext.PrimaryAxis)
 			local thisInfo = {
 				CFrame = runningPosition,
