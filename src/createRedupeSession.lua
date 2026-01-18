@@ -27,7 +27,8 @@ local resizeAlignPairs = require("./resizeAlignPairs")
 
 local ROTATE_GRANULARITY_MULTIPLIER = 2
 
-local CREATION_THROTTLE_TIME = 0.3
+local PREVIEW_THROTTLE_TIME = 0.3
+local CREATION_THROTTLE_TIME = 2.0
 
 local function createCFrameDraggerSchema(getBoundingBoxFromContextFunc)
 	local schema = table.clone(DraggerSchemaCore)
@@ -493,7 +494,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		end
 
 		local startTime = os.clock()
-		local cutoffTime = startTime + CREATION_THROTTLE_TIME
+		local cutoffTime = startTime + (done and CREATION_THROTTLE_TIME or PREVIEW_THROTTLE_TIME)
 
 		local endOffset = draggerContext.StartCFrame:VectorToWorldSpace(draggerContext.EndDeltaPosition)
 		local placements = {} :: {bendPlacement.Placement}
