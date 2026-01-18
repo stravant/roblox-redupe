@@ -798,9 +798,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	session.Commit = function(groupResults: boolean)
 		local resultsPerTarget, finalPosition = updatePlacement(true)
 		if not resultsPerTarget then
-			-- Nothing objects placed
-			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
-			recordingInProgress = nil
+			if recordingInProgress then
+				-- Nothing objects placed
+				ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
+				recordingInProgress = nil
+			end
 			return session.GetState(nil)
 		end
 
