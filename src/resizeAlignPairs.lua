@@ -32,6 +32,11 @@ local function intersectRayRay(r1o, r1d, r2o, r2d)
 	end
 end
 
+-- Insersect Ray(a + t*b) with plane (origin: o, normal: n), return t of the interesection
+function intersectRayPlane(a, b, o, n)
+	return (o - a):Dot(n) / b:Dot(n)
+end
+
 local function isRotationWorldAlignedModulo90Degrees(cframe: CFrame): boolean
 	local x = cframe.XVector:Abs()
 	local y = cframe.YVector:Abs()
@@ -94,7 +99,7 @@ local function isCandidateForResizing(a: Part, aBasis: ResizeAlignInfo, axis: Ve
 end
 
 local function approxSign(n: number)
-	if math.abs(n) < 0.001 then
+	if math.abs(n) < 0.0001 then
 		return 0
 	else
 		return math.sign(n)
@@ -201,9 +206,9 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 
 	-- Side to offset towards in the space of the part
 	local relativeOffset = aBasis.CFrame:ToObjectSpace(bBasis.CFrame)
-	local xDir = relativeOffset.XVector:Dot(axis * localSign)
-	local yDir = relativeOffset.YVector:Dot(axis * localSign)
-	local zDir = relativeOffset.ZVector:Dot(axis * localSign)
+	local xDir = relativeOffset.XVector:Dot(localSignedAxis)
+	local yDir = relativeOffset.YVector:Dot(localSignedAxis)
+	local zDir = relativeOffset.ZVector:Dot(localSignedAxis)
 	local directions = Vector3.new(approxSign(xDir), approxSign(yDir), approxSign(zDir))
 	local sizingPerpDirections = a.CFrame:VectorToObjectSpace(aBasis.CFrame:VectorToWorldSpace(directions))	
 	local offsetPerpCorrectSideA = sizingPerpToAxis * sizingPerpDirections * aSize * 0.5
@@ -228,13 +233,46 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	local alignOuterPointB = b.CFrame:PointToWorldSpace(-offsetPerpCorrectSideB)
 	local alignInnerPointA = a.CFrame:PointToWorldSpace(offsetPerpCorrectSideA)
 	local alignInnerPointB = b.CFrame:PointToWorldSpace(offsetPerpCorrectSideB)
-	local good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
-	local good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
-	local good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
-	local good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
-	if not good1 or not good2 or not good3 or not good4 then
-		warn("Failed to intersect rays for resize-align?")
-		return
+	local aBaseOuterLength, aBaseInnerLength;
+	local bBaseOuterLength, bBaseInnerLength;
+
+	local copiesAreCloseToParallel = aWorldAxis:Cross(bWorldAxis).Magnitude < 0.01
+	if copiesAreCloseToParallel then
+		-- Bring A up to B rather than having them meet in the middle, will be almost
+		-- the same thing because the ends are already well aligned.
+		local basisSizeOnAxisA = (aBasis.Size:Dot(axis) * 0.5)
+		local basisSizeOnAxisB = (bBasis.Size:Dot(axis) * 0.5)
+		local pointOnBasisA = aBasis.CFrame.Position + aWorldAxis * basisSizeOnAxisA
+		local pointOnBasisB = bBasis.CFrame.Position - bWorldAxis * basisSizeOnAxisB
+		local outerAToSelf = intersectRayPlane(alignOuterPointA, aWorldAxis, pointOnBasisA, aWorldAxis)
+		local outerAToOther = intersectRayPlane(alignOuterPointA, aWorldAxis, pointOnBasisB, bWorldAxis)
+		local outerAExtra = outerAToOther - outerAToSelf
+		aBaseOuterLength = outerAToSelf + 0.5 * outerAExtra
+
+		local innerAToSelf = intersectRayPlane(alignInnerPointA, aWorldAxis, pointOnBasisA, aWorldAxis)
+		local innerAToOther = intersectRayPlane(alignInnerPointA, aWorldAxis, pointOnBasisB, bWorldAxis)
+		local innerAExtra = innerAToOther - innerAToSelf
+		aBaseInnerLength = innerAToSelf + 0.5 * innerAExtra
+
+		local outerBToSelf = intersectRayPlane(alignOuterPointB, -bWorldAxis, pointOnBasisB, -bWorldAxis)
+		local outerBToOther = intersectRayPlane(alignOuterPointB, -bWorldAxis, pointOnBasisA, aWorldAxis)
+		local outerBExtra = outerBToOther - outerBToSelf
+		bBaseOuterLength = outerBToSelf + 0.5 * outerBExtra
+
+		local innerBToSelf = intersectRayPlane(alignInnerPointB, -bWorldAxis, pointOnBasisB, -bWorldAxis)
+		local innerBToOther = intersectRayPlane(alignInnerPointB, -bWorldAxis, pointOnBasisA, aWorldAxis)
+		local innerBExtra = innerBToOther - innerBToSelf
+		bBaseInnerLength = innerBToSelf + 0.5 * innerBExtra
+	else
+		local good1, good2, good3, good4;
+		good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
+		good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
+		good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
+		good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
+		if not good1 or not good2 or not good3 or not good4 then
+			warn("Failed to intersect rays for resize-align?")
+			return
+		end
 	end
 
 	local aOriginalLength = (aSize * sizingAxis).Magnitude
@@ -242,7 +280,11 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 
 	local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
 	local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
-	assert(wedgeHeightA >= 0 and wedgeHeightB >= 0, "Wedge heights should be non-negative")
+	if wedgeHeightA < 0 or wedgeHeightB < 0 then
+		warn("Negative wedge height in resize-align, you may see poor results")
+		wedgeHeightA = math.max(0, wedgeHeightA)
+		wedgeHeightB = math.max(0, wedgeHeightB)
+	end
 
 	local offsetUnsigned = offsetPerpCorrectSideA:Abs()
 	local mainOffset = math.max(offsetUnsigned.X, offsetUnsigned.Y, offsetUnsigned.Z)
@@ -254,7 +296,7 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	-- in isCandidateForResizing)
 	local enoughZFightForWedge = not directions:FuzzyEq(Vector3.zero) and zFightArea > MIN_ZFIGHT_AREA
 	local isCylinder = a:IsA("Part") and a.Shape == Enum.PartType.Cylinder
-	local createFill = enoughZFightForWedge or isCylinder
+	local createFill = (enoughZFightForWedge or isCylinder) and not copiesAreCloseToParallel
 
 	local aDeltaLength = (createFill and aBaseOuterLength or aBaseInnerLength) - aOriginalLength * 0.5
 	local bDeltaLength = (createFill and bBaseOuterLength or bBaseInnerLength) - bOriginalLength * 0.5
