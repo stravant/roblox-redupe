@@ -1,7 +1,13 @@
+--!native
+--!optimize 2
 type ResizeAlignInfo = {
 	CFrame: CFrame,
 	Offset: Vector3,
 	Size: Vector3,
+}
+
+export type ResizeAlignPairsCache = {
+	[number]: boolean?, -- Is Wedge fillable mesh
 }
 
 local RESIZE_TAG = "RD_S"
@@ -12,6 +18,7 @@ local MIN_ZFIGHT_AREA = 0.5
 local SPANS_FULL_WIDTH_EPSILON = 0.051
 
 local copyInstanceProperties = require("./copyInstanceProperties")
+local isWedgeFillable = require("./isWedgeFillable")
 
 --[[
 	The return value `t` is a number such that `r1o + t * r1d` is the point of
@@ -181,7 +188,7 @@ local function smallestNonZeroComponent(v: Vector3): number
 	return best
 end
 
-local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, resultList: {Instance}?)
+local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, cache: ResizeAlignPairsCache, cacheIndex: number, resultList: {Instance}?)
 	if not isCandidateForResizing(a, aBasis, axis) then
 		return
 	end
@@ -293,12 +300,22 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	local zFightAreaB = wedgeHeightB * mainOffset * 0.5
 	local zFightArea = math.max(zFightAreaA, zFightAreaB)
 
+	local nonWedgeFillableMesh = false
+	if a:IsA("MeshPart") or a:IsA("PartOperation") then
+		local cachedIsWedgeFillable = cache[cacheIndex]
+		if cachedIsWedgeFillable == nil then
+			cachedIsWedgeFillable = isWedgeFillable(a)
+			cache[cacheIndex] = cachedIsWedgeFillable
+		end
+		nonWedgeFillableMesh = not cachedIsWedgeFillable
+	end
+
 	-- Always create wedge if it's a cylinder (we already checked that it's the right orientation
 	-- in isCandidateForResizing)
 	local enoughZFightForWedge = not directions:FuzzyEq(Vector3.zero) and zFightArea > MIN_ZFIGHT_AREA
 	local isCylinder = a:IsA("Part") and a.Shape == Enum.PartType.Cylinder
 	local hasGoodWedgeHeights = wedgeHeightA > 0 and wedgeHeightB > 0
-	local createFill = (enoughZFightForWedge or isCylinder) and hasGoodWedgeHeights
+	local createFill = (enoughZFightForWedge or isCylinder) and hasGoodWedgeHeights and not nonWedgeFillableMesh
 
 	local aDeltaLength = (createFill and aBaseOuterLength or aBaseInnerLength) - aOriginalLength * 0.5
 	local bDeltaLength = (createFill and bBaseOuterLength or bBaseInnerLength) - bOriginalLength * 0.5
@@ -400,7 +417,7 @@ local function filterChildList(children: {Instance}): {Instance}
 	return filteredList
 end
 
-local function resizeAlignPairsRecursive(a: {Instance}, b: {Instance}, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, resultList: {Instance}?)
+local function resizeAlignPairsRecursive(a: {Instance}, b: {Instance}, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, cache: ResizeAlignPairsCache, cacheIndex: number, resultList: {Instance}?): number
 	assert(#a == #b, "Mismatched number of instances to resize-align recursive")
 	for i, itemA in a do
 		local itemB = b[i]
@@ -413,21 +430,23 @@ local function resizeAlignPairsRecursive(a: {Instance}, b: {Instance}, aBasis: R
 			continue
 		end
 		if itemA:IsA("BasePart") and itemB:IsA("BasePart") then
-			resizeAlignPair(itemA, itemB, aBasis, bBasis, axis, resultList)
+			resizeAlignPair(itemA, itemB, aBasis, bBasis, axis, cache, cacheIndex, resultList)
+			cacheIndex += 1
 		else
 			local childListA = filterChildList(itemA:GetChildren())
 			local childListB = filterChildList(itemB:GetChildren())
-			resizeAlignPairsRecursive(childListA, childListB, aBasis, bBasis, axis, nil)
+			cacheIndex = resizeAlignPairsRecursive(childListA, childListB, aBasis, bBasis, axis, cache, cacheIndex, nil)
 		end
 	end
+	return cacheIndex
 end
 
-local function resizeAlignPairs(a: {Instance}, b: {Instance}, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3): {{Instance}}
+local function resizeAlignPairs(a: {Instance}, b: {Instance}, aBasis: ResizeAlignInfo, bBasis: ResizeAlignInfo, axis: Vector3, cache: ResizeAlignPairsCache): {{Instance}}
 	assert(#a == #b, "Mismatched number of instances to resize-align")
 	local allResults = {}
 	for i, item in a do
 		local resultsForItem = {}
-		resizeAlignPairsRecursive({a[i]}, {b[i]}, aBasis, bBasis, axis, resultsForItem)
+		resizeAlignPairsRecursive({a[i]}, {b[i]}, aBasis, bBasis, axis, cache, 1, resultsForItem)
 		allResults[i] = resultsForItem
 	end
 	return allResults

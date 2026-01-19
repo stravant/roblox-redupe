@@ -1,4 +1,5 @@
 Prio Features
+* Something weird is happening with group as folder making empty models
 * Build an model resize mode setting (shown after resizing)
 * Save a ResizeAlign direction for parts (?)
 * Allow specifying a random amount of offset per axis

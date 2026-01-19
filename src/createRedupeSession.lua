@@ -557,6 +557,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		for i = 1, #targets do
 			resultsPerTarget[i] = {}
 		end
+		local resizeAlignPairsCache = {}
 		for i, placement in placements do
 			if i >= redundantLimit then
 				break
@@ -571,7 +572,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			}
 
 			if doResizeAlign and done then
-				local resizeAlignResults = resizeAlignPairs(lastCopy, thisCopy, lastBasis, thisInfo, draggerContext.PrimaryAxis)
+				local resizeAlignResults = resizeAlignPairs(lastCopy, thisCopy, lastBasis, thisInfo, draggerContext.PrimaryAxis, resizeAlignPairsCache)
 				for j, resizeAlignResult in resizeAlignResults do
 					for _, resultInstance in resizeAlignResult do
 						table.insert(resultsPerTarget[j], resultInstance)
@@ -602,7 +603,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 				Offset = boundsOffset,
 				Size = size,
 			}
-			local alignResults = resizeAlignPairs(lastCopy, firstCopy, lastBasis, firstBasis, draggerContext.PrimaryAxis)
+			local alignResults = resizeAlignPairs(lastCopy, firstCopy, lastBasis, firstBasis, draggerContext.PrimaryAxis, resizeAlignPairsCache)
 			for j, resizeAlignResult in alignResults do
 				for _, resultInstance in resizeAlignResult do
 					table.insert(resultsPerTarget[j], resultInstance)
