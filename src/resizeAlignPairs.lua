@@ -10,15 +10,12 @@ export type ResizeAlignPairsCache = {
 	[number]: boolean?, -- Is Wedge fillable mesh
 }
 
-local RESIZE_TAG = "RD_S"
-local FILL_TAG = "RD_W"
-local FILL_NAME_SUFFIX = "FillW"
-
 local MIN_ZFIGHT_AREA = 0.5
 local SPANS_FULL_WIDTH_EPSILON = 0.051
 
 local copyInstanceProperties = require("./copyInstanceProperties")
 local isWedgeFillable = require("./isWedgeFillable")
+local Constants = require("./Constants")
 
 --[[
 	The return value `t` is a number such that `r1o + t * r1d` is the point of
@@ -68,7 +65,7 @@ local function isCandidateForResizing(a: Part, aBasis: ResizeAlignInfo, axis: Ve
 
 	-- Already resized once, always allow even if it doesn't exactly span the
 	-- bounds along the axis anymore.
-	if a:HasTag(RESIZE_TAG) then
+	if a:HasTag(Constants.RESIZE_TAG) then
 		return true
 	end
 
@@ -137,7 +134,7 @@ end
 local function maybeRemoveWedgeAtLocation(location: Vector3, expectedName: string)
 	local found = workspace:GetPartBoundsInRadius(location, 0.001)
 	for _, part in found do
-		if part:HasTag(FILL_TAG) and part.Name == expectedName then
+		if part:HasTag(Constants.FILL_TAG) and part.Name == expectedName then
 			part.Parent = nil
 		end
 	end
@@ -240,22 +237,35 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	local alignOuterPointB = b.CFrame:PointToWorldSpace(-offsetPerpCorrectSideB)
 	local alignInnerPointA = a.CFrame:PointToWorldSpace(offsetPerpCorrectSideA)
 	local alignInnerPointB = b.CFrame:PointToWorldSpace(offsetPerpCorrectSideB)
-
-	local good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
-	local good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
-	local good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
-	local good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
-	if not good1 or not good2 or not good3 or not good4 then
-		warn("Failed to intersect rays for resize-align?")
-		return
+	
+	local wedgeHeightA, wedgeHeightB;
+	local aBaseOuterLength, aBaseInnerLength, bBaseOuterLength, bBaseInnerLength;
+	if (aWorldAxis - bWorldAxis).Magnitude < 0.001 then
+		-- Directions are effectively parallel, go straight to second case rather
+		-- than attempting ray intersection.
+		wedgeHeightA = -1
+		wedgeHeightB = -1
+	else
+		-- Directions are not parallel (but still possibly very close to
+		-- parallel), do ray intersection.
+		local good1, good2, good3, good4;
+		good1, aBaseOuterLength = intersectRayRay(alignOuterPointA, aWorldAxis, alignOuterPointB, -bWorldAxis)
+		good2, bBaseOuterLength = intersectRayRay(alignOuterPointB, -bWorldAxis, alignOuterPointA, aWorldAxis)
+		good3, aBaseInnerLength = intersectRayRay(alignInnerPointA, aWorldAxis, alignInnerPointB, -bWorldAxis)
+		good4, bBaseInnerLength = intersectRayRay(alignInnerPointB, -bWorldAxis, alignInnerPointA, aWorldAxis)
+		
+		if not good1 or not good2 or not good3 or not good4 then
+			-- Parallel case, shouldn't hit this because we already checked for
+			-- the directions parallel enough to result in zero denominator.
+			warn("Failed to intersect rays for resize-align, shouldn't hit this case, submit a bug report.")
+			wedgeHeightA = -1
+			wedgeHeightB = -1
+		else
+			-- First attempt at wedge heights via ray intersection
+			wedgeHeightA = aBaseInnerLength - aBaseOuterLength
+			wedgeHeightB = bBaseInnerLength - bBaseOuterLength
+		end
 	end
-
-	local aOriginalLength = (aSize * sizingAxis).Magnitude
-	local bOriginalLength = (b.Size * sizingAxis).Magnitude
-
-	-- First attempt at wedge heights via ray intersection
-	local wedgeHeightA = aBaseInnerLength - aBaseOuterLength
-	local wedgeHeightB = bBaseInnerLength - bBaseOuterLength
 
 	if wedgeHeightA < 0 or wedgeHeightB < 0 then
 		-- Bring A up to B rather than having them meet in the middle, will be almost
@@ -283,11 +293,12 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 		local innerBToOther = intersectRayPlane(alignInnerPointB, -bWorldAxis, pointOnBasisA, aWorldAxis)
 		local innerBExtra = innerBToOther - innerBToSelf
 		bBaseInnerLength = innerBToSelf + 0.5 * innerBExtra
+		
+		-- Second attempt at wedge heights via plane intersection
+		wedgeHeightA = aBaseInnerLength - aBaseOuterLength
+		wedgeHeightB = bBaseInnerLength - bBaseOuterLength
 	end
 
-	-- Second attempt at wedge heights via plane intersection
-	wedgeHeightA = aBaseInnerLength - aBaseOuterLength
-	wedgeHeightB = bBaseInnerLength - bBaseOuterLength
 	if wedgeHeightA < 0 or wedgeHeightB < 0 then
 		warn("Failed to compute wedge heights for resize-align using either approach")
 		wedgeHeightA = math.max(0, wedgeHeightA)
@@ -317,6 +328,9 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	local hasGoodWedgeHeights = wedgeHeightA > 0 and wedgeHeightB > 0
 	local createFill = (enoughZFightForWedge or isCylinder) and hasGoodWedgeHeights and not nonWedgeFillableMesh
 
+	local aOriginalLength = (aSize * sizingAxis).Magnitude
+	local bOriginalLength = (bSize * sizingAxis).Magnitude
+
 	local aDeltaLength = (createFill and aBaseOuterLength or aBaseInnerLength) - aOriginalLength * 0.5
 	local bDeltaLength = (createFill and bBaseOuterLength or bBaseInnerLength) - bOriginalLength * 0.5
 	if isCylinder then
@@ -330,27 +344,27 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	-- unpaired resizealigned edge with wedges.
 	local checkForWedgeToRemoveLocationA = a.Position + aWorldAxis * aOriginalLength * 0.5
 	local checkForWedgeToRemoveLocationB = b.Position - bWorldAxis * bOriginalLength * 0.5
-	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationA, a.Name .. FILL_NAME_SUFFIX)
-	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationB, b.Name .. FILL_NAME_SUFFIX)
+	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationA, a.Name .. Constants.FILL_NAME_SUFFIX)
+	maybeRemoveWedgeAtLocation(checkForWedgeToRemoveLocationB, b.Name .. Constants.FILL_NAME_SUFFIX)
 
 	if createFill then
 		if isCylinder then
 			-- For cylinders fill intersection with one ball
 			local ball = makeBall(a)
-			ball.Name ..= FILL_NAME_SUFFIX
+			ball.Name ..= Constants.FILL_NAME_SUFFIX
 			ball.CFrame = CFrame.fromMatrix(
 				a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeightA * 0.5),
 				closestUnitVector(a.CFrame, -offsetPerpCorrectSideA):Cross(aWorldAxis),
 				aWorldAxis
 			) + aWorldVisualOffset
 			ball.Size = Vector3.one * smallestNonZeroComponent(sizingPerpToAxis * aSize)
-			ball:AddTag(FILL_TAG)
+			ball:AddTag(Constants.FILL_TAG)
 			ball.Parent = a.Parent
 		else
 			-- For boxes fill intersection with two wedges
 			local desiredZVectorForA = a.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideA)
 			local wedgeA = makeWedge(a)
-			wedgeA.Name ..= FILL_NAME_SUFFIX
+			wedgeA.Name ..= Constants.FILL_NAME_SUFFIX
 			wedgeA.CFrame = CFrame.fromMatrix(
 				a.Position + aWorldAxis * (aBaseOuterLength + wedgeHeightA * 0.5),
 				closestUnitVector(a.CFrame, desiredZVectorForA):Cross(aWorldAxis),
@@ -359,7 +373,7 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 			local aPerSizeInBasis = aBasis.CFrame:VectorToObjectSpace(a.CFrame:VectorToWorldSpace(sizingPerpToAxis * aSize))
 			local aSizeInBasis = axis * wedgeHeightA + aPerSizeInBasis
 			wedgeA.Size = wedgeA.CFrame:VectorToObjectSpace(aBasis.CFrame:VectorToWorldSpace(aSizeInBasis)):Abs()
-			wedgeA:AddTag(FILL_TAG)
+			wedgeA:AddTag(Constants.FILL_TAG)
 			wedgeA.Parent = a.Parent
 			if resultList then
 				table.insert(resultList, wedgeA)
@@ -367,7 +381,7 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 
 			local desiredZVectorForB = b.CFrame:VectorToWorldSpace(-offsetPerpCorrectSideB)
 			local wedgeB = makeWedge(b)
-			wedgeB.Name ..= FILL_NAME_SUFFIX
+			wedgeB.Name ..= Constants.FILL_NAME_SUFFIX
 			wedgeB.CFrame = CFrame.fromMatrix(
 				b.Position - bWorldAxis * (bBaseOuterLength + wedgeHeightB * 0.5),
 				-closestUnitVector(b.CFrame, desiredZVectorForB):Cross(bWorldAxis),
@@ -376,7 +390,7 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 			local bPerSizeInBasis = bBasis.CFrame:VectorToObjectSpace(b.CFrame:VectorToWorldSpace(sizingPerpToAxis * bSize))
 			local bSizeInBasis = axis * wedgeHeightB + bPerSizeInBasis
 			wedgeB.Size = wedgeB.CFrame:VectorToObjectSpace(bBasis.CFrame:VectorToWorldSpace(bSizeInBasis)):Abs()
-			wedgeB:AddTag(FILL_TAG)
+			wedgeB:AddTag(Constants.FILL_TAG)
 			wedgeB.Parent = b.Parent
 			if resultList then
 				table.insert(resultList, wedgeB)
@@ -390,7 +404,7 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	else
 		a.Size = aNewSize
 		a.CFrame += aWorldAxis * aDeltaLength * 0.5
-		a:AddTag(RESIZE_TAG)
+		a:AddTag(Constants.RESIZE_TAG)
 	end
 
 	local bNewSize = b.Size + (sizingAxis * bDeltaLength) / bSizeScale
@@ -399,17 +413,18 @@ local function resizeAlignPair(a: Part, b: Part, aBasis: ResizeAlignInfo, bBasis
 	else
 		b.Size = bNewSize
 		b.CFrame -= bWorldAxis * bDeltaLength * 0.5
-		b:AddTag(RESIZE_TAG)
+		b:AddTag(Constants.RESIZE_TAG)
 	end
 end
 
 local function filterChildList(children: {Instance}): {Instance}
 	local filteredList = {}
+	local fillTag = Constants.FILL_TAG
 	for _, ch in children do
 		if not ch.Archivable then
 			continue
 		end
-		if ch:HasTag(FILL_TAG) then
+		if ch:HasTag(fillTag) then
 			continue
 		end
 		table.insert(filteredList, ch)

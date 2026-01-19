@@ -17,6 +17,7 @@ local Signal = require(Packages.Signal)
 local Settings = require("./Settings")
 local createGhostPreview = require("./createGhostPreview")
 local bendPlacement = require("./bendPlacement")
+local Constants = require("./Constants")
 
 local DraggerContext_PluginImpl = (require :: any)(DraggerFramework.Implementation.DraggerContext_PluginImpl)
 local DraggerToolComponent = (require :: any)(DraggerFramework.DraggerTools.DraggerToolComponent)
@@ -474,10 +475,27 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	end
 
 	local function shouldResizeAlign(): boolean
+		-- Most importantly, don't resize if the user explicitly asked not to
+		if not currentSettings.ResizeAlign then
+			return false
+		end
+
+		-- Second, we have to resize if we've resized in the past
+		local resizeTag = Constants.RESIZE_TAG
+		for _, target in targets do
+			for _, part in target:QueryDescendants("BasePart") do
+				if part:HasTag(resizeTag) then
+					return true
+				end
+			end
+		end
+
+		-- Finally, as an optimization, don't resize if there's no rotation
 		if currentSettings.Rotation:FuzzyEq(CFrame.identity) then
 			return false
 		end
-		return currentSettings.ResizeAlign
+		
+		return true
 	end
 
 	local function updatePlacement(done: boolean): ({{ Instance }}?, CFrame?)
