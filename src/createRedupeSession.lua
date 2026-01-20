@@ -157,6 +157,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	local info = DraggerSchemaCore.SelectionInfo.new(draggerContext, targets)
 	local center, boundsOffset, size = info:getLocalBoundingBox()
 
+	-- Decide if it's a single part selection
+	currentSettings.SelectionIsSinglePart = #info:getObjectsToTransform() == 1
+
 	-- Don't need a bounds offset, just a simple bounding box
 	center *= CFrame.new(boundsOffset)
 	boundsOffset = Vector3.zero
@@ -474,6 +477,22 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		return math.huge
 	end
 
+	local function isSinglePartWithSpacingCase(): boolean
+		-- Only intrested in single part here
+		if not currentSettings.SelectionIsSinglePart then
+			return false
+		end
+		-- Copy count always has interesting spacing
+		if not currentSettings.UseSpacing then
+			return true
+		end
+		-- Copy spacing non-defaults
+		if currentSettings.CopySpacing ~= 1 or currentSettings.CopyPadding ~= 0 then
+			return true
+		end
+		return false
+	end
+
 	local function shouldResizeAlign(): boolean
 		-- Most importantly, don't resize if the user explicitly asked not to
 		if not currentSettings.ResizeAlign then
@@ -493,11 +512,17 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			end
 		end
 
+		-- Third, if it's a single part with spacing, ResizeAligning would
+		-- effectively ignore the spacing, so don't do it.
+		if isSinglePartWithSpacingCase() then
+			return false
+		end
+
 		-- Finally, as an optimization, don't resize if there's no rotation
 		if currentSettings.Rotation:FuzzyEq(CFrame.identity) then
 			return false
 		end
-		
+
 		return true
 	end
 

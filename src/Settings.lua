@@ -3,14 +3,20 @@ local kSettingsKey = "redupeState"
 
 local PluginGuiTypes = require("./PluginGui/Types")
 
-export type RedupeSettings = PluginGuiTypes.PluginGuiSettings & {
+-- Temporary settings which are not actually saved but just used to communicate between
+-- the UI and session.
+export type TemporarySessionSettings = {
+	FinalCopyCount: number,
+	Rotation: CFrame,
+	SelectionIsSinglePart: boolean,
+}
+
+export type RedupeSettings = PluginGuiTypes.PluginGuiSettings & TemporarySessionSettings & {
 	CopyCount: number,
-	FinalCopyCount: number, -- Not saved, after redundancy is accounted for
 	CopySpacing: number,
 	CopyPadding: number,
 	UseSpacing: boolean,
 	MultilySnapByCount: boolean,
-	Rotation: CFrame, -- Not saved, only to comunicate between archituctural layers
 	TouchSide: number,
 	GroupAs: string,
 	AddOriginalToGroup: boolean,
@@ -36,8 +42,6 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		CopyPadding = raw.CopyPadding or 0,
 		UseSpacing = if raw.UseSpacing == nil then true else raw.UseSpacing,
 		MultilySnapByCount = if raw.MultilySnapByCount == nil then true else raw.MultilySnapByCount,
-		-- Don't actually save the rotation
-		Rotation = CFrame.new(),
 		TouchSide = raw.TouchSide or 1,
 		GroupAs = raw.GroupAs or "None",
 		AddOriginalToGroup = if raw.AddOriginalToGroup == nil then true else raw.AddOriginalToGroup,
@@ -45,6 +49,10 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		DoneTutorial = if raw.DoneTutorial ~= nil then raw.DoneTutorial else false,
 		ResizeAlign = if raw.ResizeAlign ~= nil then raw.ResizeAlign else true,
 		WindowHeightDelta = if raw.WindowHeightDelta ~= nil then raw.WindowHeightDelta else 0,
+
+		-- Unsaved values whose initial state does not matter
+		Rotation = CFrame.new(),
+		SelectionIsSinglePart = false,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)

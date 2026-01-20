@@ -175,11 +175,34 @@ local function SpacingOrCountToggle(props: {
 	})
 end
 
+local function SpacingOrPaddingAndResizeAlignWarning(props: {
+	LayoutOrder: number?,
+	CurrentSettings: Settings.RedupeSettings,
+})
+	local settings = props.CurrentSettings
+	local isPadding = settings.UseSpacing and settings.CopyPadding ~= 0.0 and settings.CopySpacing == 1.0
+	return e("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Text = if isPadding
+			then "⚠️ Auto ResizeAlign may partially undo your padding, disable it if this is undesired."
+			else "⚠️ Auto ResizeAlign may partially undo your custom spacing, disable it if this is undesired.",
+		TextColor3 = Colors.WARNING_YELLOW,
+		TextWrapped = true,
+		Font = Enum.Font.SourceSansBold,
+		TextSize = 13,
+		LayoutOrder = props.LayoutOrder,
+	})
+end
+
 local function CopiesPanel(props: {
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
+	ResizeAlignSpacingConflict: boolean,
 	LayoutOrder: number?,
 })
+	local nextOrder = createNextOrder()
 	return e(SubPanel, {
 		Title = "Specify Copy...",
 		Padding = UDim.new(0, 4),
@@ -193,7 +216,7 @@ local function CopiesPanel(props: {
 				CurrentSettings = props.CurrentSettings,
 				UpdatedSettings = props.UpdatedSettings,
 			}),
-			LayoutOrder = 1,
+			LayoutOrder = nextOrder(),
 		}),
 		Count = not props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
@@ -209,7 +232,7 @@ local function CopiesPanel(props: {
 					return newValue
 				end,
 			}),
-			LayoutOrder = 2,
+			LayoutOrder = nextOrder(),
 		}),
 		SpacingMultiplier = props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
@@ -229,7 +252,7 @@ local function CopiesPanel(props: {
 					return newValue
 				end,
 			}),
-			LayoutOrder = 3,
+			LayoutOrder = nextOrder(),
 		}),
 		Padding = props.CurrentSettings.UseSpacing and e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
@@ -247,7 +270,11 @@ local function CopiesPanel(props: {
 					return newValue
 				end,
 			}),
-			LayoutOrder = 4,
+			LayoutOrder = nextOrder(),
+		}),
+		Warning = props.ResizeAlignSpacingConflict and e(SpacingOrPaddingAndResizeAlignWarning, {
+			LayoutOrder = nextOrder(),
+			CurrentSettings = props.CurrentSettings,
 		}),
 		MultiplySnapByCount = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
@@ -263,7 +290,7 @@ local function CopiesPanel(props: {
 					props.UpdatedSettings()
 				end,
 			}),
-			LayoutOrder = 5,
+			LayoutOrder = nextOrder(),
 		}),
 	})
 end
@@ -397,11 +424,35 @@ local function RotateModeToggle(props: {
 	})
 end
 
+local function WillNotResizeAlignWarning(props: {
+	LayoutOrder: number?,
+	CurrentSettings: Settings.RedupeSettings,
+})
+	local settings = props.CurrentSettings
+	local isPadding = settings.UseSpacing and settings.CopyPadding ~= 0.0 and settings.CopySpacing == 1.0
+	return e("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Text = if isPadding
+			then "⚠️ Will not ResizeAlign because that would counteract your non-zero padding."
+			else "⚠️ Will not ResizeAlign because that would counteract your custom spacing.",
+		TextColor3 = Colors.WARNING_YELLOW,
+		TextWrapped = true,
+		Font = Enum.Font.SourceSansBold,
+		TextSize = 13,
+		LayoutOrder = props.LayoutOrder,
+	})
+end
+
 local function RotationPanel(props: {
 	CurrentSettings: Settings.RedupeSettings,
 	UpdatedSettings: () -> (),
+	WillNotResizeAlign: boolean,
 	LayoutOrder: number?,
 })
+	local currentSettings = props.CurrentSettings
+	local nextOrder = createNextOrder()
 	return e(SubPanel, {
 		Title = "Rotation Between Copies",
 		LayoutOrder = props.LayoutOrder,
@@ -412,35 +463,39 @@ local function RotationPanel(props: {
 				HelpRichText = "Enter a precise rotation between copies.\nYou can also enter \"/7\" to form a circle of 7 copies.\nUse the rotate handles for simpler rotations.",
 			}),
 			Subject = e(RotationDisplay, {
-				CurrentSettings = props.CurrentSettings,
+				CurrentSettings = currentSettings,
 				UpdateSettings = props.UpdatedSettings,
 			}),
-			LayoutOrder = 1,
+			LayoutOrder = nextOrder(),
 		}),
-		e(HelpGui.WithHelpIcon, {
+		RotateMode = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
 				HelpRichText = "Choose what pivot point the rotation uses, the one on the inside, middle, or outside of the curve.\n• Outside tends to be the best for parts.\n• Middle tends to be the best for non-boxy models like trees.\n• Inside has use cases where Z-fighting must be avoided.",
 			}),
 			Subject = e(RotateModeToggle, {
-				CurrentSettings = props.CurrentSettings,
+				CurrentSettings = currentSettings,
 				UpdatedSettings = props.UpdatedSettings,
 			}),
-			LayoutOrder = 2,
+			LayoutOrder = nextOrder(),
 		}),
-		e(HelpGui.WithHelpIcon, {
+		AutoResizeAlign = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
 				HelpRichText = "Should the parts in copies next to eachother be resized up to the point where they align? Wedges will be used to fill any large gaps.\n" ..
 					"• This will only apply to parts which span the full size of the selection on the axis of duplication.",
 			}),
 			Subject = e(Checkbox, {
 				Label = "Automatic ResizeAlign",
-				Checked = props.CurrentSettings.ResizeAlign,
+				Checked = currentSettings.ResizeAlign,
 				Changed = function(checked: boolean)
-					props.CurrentSettings.ResizeAlign = checked
+					currentSettings.ResizeAlign = checked
 					props.UpdatedSettings()
 				end,
 			}),
-			LayoutOrder = 2,
+			LayoutOrder = nextOrder(),
+		}),
+		WillNotResizeAlign = props.WillNotResizeAlign and e(WillNotResizeAlignWarning, {
+			LayoutOrder = nextOrder(),
+			CurrentSettings = currentSettings,
 		}),
 	})
 end
@@ -540,6 +595,17 @@ local REDUPE_CONFIG: PluginGuiTypes.PluginGuiConfig = {
 	TutorialElement = TutorialGui,
 }
 
+local function spacingCouldConflictWithResizeAlign(settings: Settings.RedupeSettings): boolean
+	if settings.UseSpacing == false then
+		return true
+	elseif settings.CopySpacing ~= 1.0 then
+		return true
+	elseif settings.CopyPadding ~= 0.0 then
+		return true
+	end
+	return false
+end
+
 local function RedupeGui(props: {
 	GuiState: PluginGuiTypes.PluginGuiMode,
 	CanPlace: boolean,
@@ -548,37 +614,46 @@ local function RedupeGui(props: {
 	HandleAction: (string) -> (),
 	Panelized: boolean,
 })
+	local currentSettings = props.CurrentSettings
+	local updatedSettings = props.UpdatedSettings
+
+	local spacingCouldConflict = spacingCouldConflictWithResizeAlign(currentSettings)
+	local resizeAlignConflict = spacingCouldConflict and currentSettings.ResizeAlign
+	local willResizeAlign = not spacingCouldConflict or not currentSettings.SelectionIsSinglePart
+
 	local nextOrder = createNextOrder()
 	return e(PluginGui, {
 		Config = REDUPE_CONFIG,
 		State = {
 			Mode = props.GuiState,
-			Settings = props.CurrentSettings,
-			UpdatedSettings = props.UpdatedSettings,
+			Settings = currentSettings,
+			UpdatedSettings = updatedSettings,
 			HandleAction = props.HandleAction,
 			Panelized = props.Panelized,
 		},
 	}, {
 		OperationPanel = e(OperationPanel, {
-			GroupAs = props.CurrentSettings.GroupAs,
-			CopyCount = props.CurrentSettings.FinalCopyCount,
+			GroupAs = currentSettings.GroupAs,
+			CopyCount = currentSettings.FinalCopyCount,
 			CanPlace = props.CanPlace,
 			HandleAction = props.HandleAction,
 			LayoutOrder = nextOrder(),
 		}),
 		CopiesPanel = e(CopiesPanel, {
-			CurrentSettings = props.CurrentSettings,
-			UpdatedSettings = props.UpdatedSettings,
+			CurrentSettings = currentSettings,
+			UpdatedSettings = updatedSettings,
+			ResizeAlignSpacingConflict = willResizeAlign and resizeAlignConflict,
 			LayoutOrder = nextOrder(),
 		}),
 		RotationPanel = e(RotationPanel, {
-			CurrentSettings = props.CurrentSettings,
-			UpdatedSettings = props.UpdatedSettings,
+			CurrentSettings = currentSettings,
+			UpdatedSettings = updatedSettings,
+			WillNotResizeAlign = currentSettings.ResizeAlign and not willResizeAlign,
 			LayoutOrder = nextOrder(),
 		}),
 		ResultPanel = e(ResultPanel, {
-			CurrentSettings = props.CurrentSettings,
-			UpdatedSettings = props.UpdatedSettings,
+			CurrentSettings = currentSettings,
+			UpdatedSettings = updatedSettings,
 			LayoutOrder = nextOrder(),
 		}),
 	})
