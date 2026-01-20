@@ -483,6 +483,9 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		-- Second, we have to resize if we've resized in the past
 		local resizeTag = Constants.RESIZE_TAG
 		for _, target in targets do
+			if target:HasTag(resizeTag) then
+				return true
+			end
 			for _, part in target:QueryDescendants("BasePart") do
 				if part:HasTag(resizeTag) then
 					return true
