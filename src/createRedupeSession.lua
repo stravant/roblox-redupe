@@ -6,6 +6,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Packages = script.Parent.Parent.Packages
 
@@ -30,6 +31,12 @@ local ROTATE_GRANULARITY_MULTIPLIER = 2
 
 local PREVIEW_THROTTLE_TIME = 0.3
 local CREATION_THROTTLE_TIME = 2.0
+
+local UNDO_JUNK_WAYPOINT_NAME = "Redupe preview modification"
+
+-- To make a virtual waypoint we still need to make an actual change to the
+-- DataModel, set an attribute on a service to junk value do this.
+local UNDO_JUNK_ATTRIBUTE = "RedupeUndoWaypoint"
 
 local function createCFrameDraggerSchema(getBoundingBoxFromContextFunc)
 	local schema = table.clone(DraggerSchemaCore)
@@ -134,7 +141,13 @@ local function tweenCamera(globalTransform: CFrame)
 	end)
 end
 
-local function createRedupeSession(plugin: Plugin, targets: { Instance }, currentSettings: Settings.RedupeSettings, previousState: SessionState?)
+local function createRedupeSession(
+	plugin: Plugin,
+	targets: { Instance },
+	currentSettings: Settings.RedupeSettings,
+	hasExistingVirtualWaypoint: boolean,
+	previousState: SessionState?
+)
 	local session = {}
 
 	local screenGui = Instance.new("ScreenGui")
@@ -170,6 +183,8 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		local globalTransform = center * previousState.Center:Inverse()
 		tweenCamera(globalTransform)
 	end
+
+	local undoStack = {} :: {() -> ()}
 
 	-- Kind of ugly, needed to make switching between modes work easily to
 	-- preserve the copy count.
@@ -536,6 +551,7 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			lastCopiesUsed = copyCount
 		else
 			lastCopiesUsed = nil
+			ghostPreview.trim()
 			return
 		end
 
@@ -696,6 +712,14 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						updatePlacement(false)
 						changeSignal:Fire()
 					end,
+					EndScale = function()
+						local revertSize = draggerContext.StartResizeSize
+						local revertPosition = draggerContext.StartEndResizePosition
+						table.insert(undoStack, function()
+							draggerContext.EndSize = revertSize
+							draggerContext.EndDeltaPosition = revertPosition
+						end)
+					end,
 					Visible = function()
 						-- Only allow resizing when we have a single target
 						return draggerContext.PrimaryAxis ~= nil and #targets == 1
@@ -726,6 +750,12 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						currentSettings.Rotation = result:Orthonormalize()
 						updatePlacement(false)
 						changeSignal:Fire()
+					end,
+					EndTransform = function()
+						local revertValue = draggerContext.StartDragCFrame
+						table.insert(undoStack, function()
+							currentSettings.Rotation = revertValue
+						end)
 					end,
 					Visible = function()
 						return draggerContext.PrimaryAxis ~= nil
@@ -770,6 +800,22 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 						updatePlacement(false)
 						changeSignal:Fire()
 					end,
+
+					EndTransform = function()
+						local revertDragCopies = draggerContext.StartDragCopies
+						local revertEndCFrame = draggerContext.StartDragCFrame
+						local revertOffAxisPositionPer = draggerContext.OffAxisPositionPer
+						table.insert(undoStack, function()
+							local previousCopyCount = getCopyCount()
+							draggerContext.EndCFrame = revertEndCFrame
+							local newCount = getCopyCount()
+							if newCount then
+								draggerContext.EndCFrame += revertOffAxisPositionPer * (newCount - revertDragCopies)
+							end
+							maybeUpdateSizeAdjustments(previousCopyCount, newCount)
+							updatePrimaryAxis()
+						end)
+					end,
 				}),
 			},
 		},
@@ -812,8 +858,41 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		return createdContainers
 	end
 
-	local recordingInProgress = ChangeHistoryService:TryBeginRecording("RedupeChanges", "Redupe Changes")
+	local function addVirtualWaypoint()
+		ServerStorage:SetAttribute(UNDO_JUNK_ATTRIBUTE, math.random())
+		ChangeHistoryService:SetWaypoint(UNDO_JUNK_WAYPOINT_NAME)
+	end
+	local function clearVirtualWaypoint()
+		ServerStorage:SetAttribute(UNDO_JUNK_ATTRIBUTE, nil)
+		if not ChangeHistoryService:GetCanUndo() then
+			-- Things will get screwed up if we fail to undo, so check first.
+			return
+		end
+		local thisTask = nil
+		local foundWaypointName = nil
+		ChangeHistoryService.OnUndo:Once(function(waypointName: string)
+			foundWaypointName = waypointName
+			if thisTask then
+				coroutine.resume(thisTask)
+			end
+		end)
+		ChangeHistoryService:Undo()
+		if not foundWaypointName then
+			thisTask = coroutine.running()
+			coroutine.yield()
+		end
+		if foundWaypointName == UNDO_JUNK_WAYPOINT_NAME then
+			-- Nothing to do
+		else
+			-- Reapply the undo if we undid something else
+			ChangeHistoryService:Redo()
+		end
+	end
+	if not hasExistingVirtualWaypoint then
+		addVirtualWaypoint()
+	end
 
+	local sessionIsLive = true
 	session.GetState = function(finalPosition: CFrame?): SessionState
 		return {
 			Center = center,
@@ -827,16 +906,14 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 	session.CanPlace = function(): boolean
 		return draggerContext.PrimaryAxis ~= nil
 	end
+	session.IsLive = function(): boolean
+		return sessionIsLive
+	end
+	session.ClearVirtualWaypoint = clearVirtualWaypoint
 	session.Destroy = function()
-		if recordingInProgress then
-			local existingSelection = Selection:Get()
-			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
-			-- Finish recording may clobber the selection when using cancel mode, manually
-			-- preserve the selection we had. Cancelling may have removed something that
-			-- was selected but Set is tolerant of that.
-			Selection:Set(existingSelection)
-			recordingInProgress = nil
-		end
+		-- Do not clearVirtualWaypoint here, as Destroy is called on Commit, and
+		-- the public ClearVirtualWaypoint is called on exit.
+		sessionIsLive = false
 		Roact.unmount(handle)
 		screenGui:Destroy()
 		ghostPreview.hide()
@@ -845,13 +922,15 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		rotatedAxisDisplay:Destroy()
 	end
 	session.Commit = function(groupResults: boolean)
+		sessionIsLive = false
+
+		-- Try to get rid of the virtual waypoint
+		clearVirtualWaypoint()
+
+		local recording = ChangeHistoryService:TryBeginRecording("Redupe Changes")
 		local resultsPerTarget, finalPosition = updatePlacement(true)
 		if not resultsPerTarget then
-			if recordingInProgress then
-				-- Nothing objects placed
-				ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Cancel)
-				recordingInProgress = nil
-			end
+			-- No objects placed, no Undo waypoint needed
 			return session.GetState(nil)
 		end
 
@@ -872,11 +951,11 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 			Selection:Set(toSelect)
 		end
 
-		if recordingInProgress then
-			ChangeHistoryService:FinishRecording(recordingInProgress, Enum.FinishRecordingOperation.Commit)
-			recordingInProgress = nil
+		if recording then
+			-- Append to merge with the virtual waypoint
+			ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
 		else
-			warn("Redupe: ChangeHistory Recording failed, fall back to adding waypoint.")
+			-- Fallback if recording fails
 			ChangeHistoryService:SetWaypoint("Redupe Changes")
 		end
 		primaryAxisDisplay:Destroy()
@@ -891,6 +970,38 @@ local function createRedupeSession(plugin: Plugin, targets: { Instance }, curren
 		maybeAdjustPositionUsingCopySpacing()
 		updatePlacement(false)
 		fixedSelection.SelectionChanged:Fire() -- Cause a dragger update
+	end
+
+	-- Return: Exausted undo stack, should exit session
+	session.Undo = function(waypointName: string): boolean
+		-- Without this, we will hear the undo the Commit does to try to clear
+		-- the virtual waypoint.
+		if not sessionIsLive then
+			return false
+		end
+		
+		-- Ignore other undoes
+		if waypointName ~= UNDO_JUNK_WAYPOINT_NAME then
+			return false
+		end
+
+		-- Handle our undo
+		local undoAction = table.remove(undoStack)
+		if undoAction then
+			undoAction()
+			updatePlacement(false)
+			-- Cause a dragger update (not exactly sure why this is needed)
+			fixedSelection.SelectionChanged:Fire()
+			changeSignal:Fire()
+
+			-- Add back a fresh virtual waypoint
+			addVirtualWaypoint()
+
+			return false
+		else
+			-- Request exit
+			return true
+		end
 	end
 	session.ChangeSignal = changeSignal
 

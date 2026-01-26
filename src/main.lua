@@ -31,6 +31,18 @@ local function getFilteredSelection(): { Instance }
 	return filtered
 end
 
+local function areTablesEqual<T>(a: { T }, b: { T }): boolean
+	if #a ~= #b then
+		return false
+	end
+	for i = 1, #a do
+		if a[i] ~= b[i] then
+			return false
+		end
+	end
+	return true
+end
+
 return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signal.Signal<>, setButtonActive: (active: boolean) -> ())
 	-- The current session
 	local session: createRedupeSession.RedupeSession? = nil
@@ -40,6 +52,7 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 	local activeSettings = Settings.Load(plugin)
 
 	local selectionChangedCn: RBXScriptConnection? = nil
+	local lastSelection: { Instance } = {}
 	local pluginActive = false
 
 	local undoCn: RBXScriptConnection? = nil
@@ -125,6 +138,7 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 		end
 		setButtonActive(newActive)
 		if newActive then
+			lastSelection = Selection:Get()
 			selectionChangedCn = Selection.SelectionChanged:Connect(onSelectionChange)
 			active = true
 		else
@@ -151,6 +165,7 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 			session.Destroy()
 			session = nil
 			if mustRestoreSelectionChanged then
+				lastSelection = Selection:Get()
 				selectionChangedCn = Selection.SelectionChanged:Connect(onSelectionChange)
 			end
 		end
@@ -160,20 +175,48 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 		end
 	end
 
+	local function closeRequested()
+		-- Don't call session.ClearVirtualWaypoint here, as this gets called
+		-- when undoing the virtual waypoint naturally as the last undo to exit
+		-- the tool.
+
+		-- Don't reuse rotations when pressing done, only when stamping
+		activeSettings.Rotation = CFrame.new()
+
+		setActive(false)
+		destroySession()
+
+		-- Explict X press -> Deactivate
+		plugin:Deactivate()
+	end
+
+	-- hasVirtualWaypoint is true if thanks to reset we aleady have a virtual waypoint
 	local function tryCreateSession(oldState: createRedupeSession.SessionState?)
+		-- If there's a live session, we can steal the waypoint from it
+		local hasVirtualWaypoint = session ~= nil and session.IsLive()
 		if session then
 			destroySession()
 		end
 		local targets = getFilteredSelection()
 		if #targets > 0 then
-			local newSession = createRedupeSession(plugin, targets, activeSettings, oldState)
+			local newSession = createRedupeSession(plugin, targets, activeSettings, hasVirtualWaypoint, oldState)
 			newSession.ChangeSignal:Connect(updateUI)
 			session = newSession
 			updateUI()
 
 			-- Kill the session on undo
-			undoCn = ChangeHistoryService.OnUndo:Connect(function()
-				destroySession()
+			undoCn = ChangeHistoryService.OnUndo:Connect(function(waypointName)
+				-- Tell the session to undo, defer to avoid issues with adding
+				-- a new waypoint in the middle of the undo stack changing under
+				-- Immediate SignalBehavior.
+				task.defer(function()
+					local shouldExit = newSession.Undo(waypointName)
+					if shouldExit then
+						closeRequested()
+					else
+						updateUI()
+					end
+				end)
 			end)
 
 			-- Activate the plugin here, only after we have a session
@@ -189,22 +232,16 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 			end
 		end
 	end
-
-	local function closeRequested()
-		-- Don't reuse rotations when pressing done, only when stamping
-		activeSettings.Rotation = CFrame.new()
-
-		setActive(false)
-		destroySession()
-
-		-- Explict X press -> Deactivate
-		plugin:Deactivate()
-	end
 	
 	function onSelectionChange()
 		if temporarilyIgnoreSelectionChanges then
 			return
 		end
+		local newSelection = Selection:Get()
+		if areTablesEqual(lastSelection, newSelection) then
+			return
+		end
+		lastSelection = newSelection
 		-- Kill rotation if we switch selected object, it just feels weird to keep in practice.
 		activeSettings.Rotation = CFrame.new()
 		-- It might be interesting to try to preserve state here
@@ -224,6 +261,9 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 		-- to the newly created objects.
 		temporarilyIgnoreSelectionChanges = true
 		if action == "cancel" then
+			if session then
+				session.ClearVirtualWaypoint()
+			end
 			closeRequested()
 		elseif action == "stamp" then
 			assert(session)

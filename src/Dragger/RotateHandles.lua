@@ -441,6 +441,7 @@ function RotateHandles:mouseUp(mouseRay)
 	--local newSelectionInfoHint = self._implementation:endDrag()
 	self._schema.addUndoWaypoint(self._draggerContext, "Axis Rotate Selection")
 	--return newSelectionInfoHint
+	self._props.EndTransform()
 end
 
 function RotateHandles:_updateHandles()

@@ -499,6 +499,7 @@ function MoveHandles:mouseUp(mouseRay)
 		self._props.ApplyTransform(self._lastGlobalTransformForRender)
 	end
 	--return newSelectionInfoHint
+	self._props.EndTransform()
 end
 
 function MoveHandles:_updateHandles()

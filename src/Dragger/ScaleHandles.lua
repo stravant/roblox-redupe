@@ -588,6 +588,7 @@ function ExtrudeHandle:mouseUp(mouseRay)
 		self:_endSummon()
 	end
 	self._schema.addUndoWaypoint(self._draggerContext, "Scale Selection")
+	self._props.EndScale()
 end
 
 function ExtrudeHandle:_getDistanceAlongAxis(mouseRay)
