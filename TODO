@@ -1,4 +1,5 @@
 Prio Features
+* ResizeAlign behavior doesn't work correctly on stuff with WeldConstraints
 * Script Injection Permission
 * Remember the axis size / offset for duplicated objects that got ResizeAligned (can optimize the check for resizable contents to just checking that attribute if we do this)
 * Something weird is happening with group as folder making empty models
