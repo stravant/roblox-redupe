@@ -879,7 +879,20 @@ local function createRedupeSession(
 		ChangeHistoryService:Undo()
 		if not foundWaypointName then
 			thisTask = coroutine.running()
+			local completed = false
+			-- Failsafe
+			task.delay(0.1, function()
+				if completed then
+					return
+				end
+				warn("Redupe: Didn't get any OnUndo associated with Undo(), please report this issue to stravant")
+				
+				-- Assume we did undo what we wanted to and proceed
+				foundWaypointName = UNDO_JUNK_WAYPOINT_NAME
+				coroutine.resume(thisTask)
+			end)
 			coroutine.yield()
+			completed = true
 		end
 		if foundWaypointName == UNDO_JUNK_WAYPOINT_NAME then
 			-- Nothing to do
