@@ -287,11 +287,9 @@ return function(plugin: Plugin, panel: DockWidgetPluginGui, buttonClicked: Signa
 	end
 
 	local clickedCn = buttonClicked:Connect(function()
-		-- If the plugin is already open but nothing is selected treat the
-		-- button press as closing the panel.
-		if active and (#getFilteredSelection() == 0) then
-			setActive(false)
-			destroySession()
+		if active then
+			-- If the plugin is open close it.
+			closeRequested()
 		else
 			-- If the plugin is not open, open it and try to begin a session.
 			-- If there is no selection the user will see a UI telling them
