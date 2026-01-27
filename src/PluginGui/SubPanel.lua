@@ -100,7 +100,7 @@ local function _GoodSubPanel(props: {
 	}, {
 		Outline = e("Path2D", {
 			Thickness = 2,
-			Color3 = Colors.WHITE,
+			Color3 = Colors.OFFWHITE,
 			ref = outlineRef,
 		}),
 		TitleLabel = e("TextLabel", {
@@ -108,7 +108,7 @@ local function _GoodSubPanel(props: {
 			Position = UDim2.fromOffset(INSET * 2, -3),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			TextColor3 = Colors.WHITE,
+			TextColor3 = Colors.OFFWHITE,
 			Text = props.Title,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.SourceSansBold,
@@ -154,11 +154,11 @@ local function SubPanel(props: {
 	}, {
 		TitleLabel = e("TextLabel", {
 			Size = UDim2.fromScale(0, 0),
-			Position = UDim2.fromOffset(INSET * 2, -3),
+			Position = UDim2.fromOffset(INSET * 2, -4),
 			AutomaticSize = Enum.AutomaticSize.XY,
 			BorderSizePixel = 0,
 			BackgroundColor3 = Colors.BLACK,
-			TextColor3 = Colors.WHITE,
+			TextColor3 = Colors.OFFWHITE,
 			Text = props.Title,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Font = Enum.Font.SourceSansBold,
@@ -179,7 +179,7 @@ local function SubPanel(props: {
 				CornerRadius = UDim.new(0, 5),
 			}),
 			Stroke = e("UIStroke", {
-				Color = Colors.WHITE,
+				Color = Colors.OFFWHITE,
 				BorderOffset = UDim.new(0, -1),
 				Thickness = 1.6,
 			}),
