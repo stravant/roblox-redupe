@@ -126,6 +126,7 @@ local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, ori
 			if originalInfo then
 				part.Size = originalInfo.Size
 				part.CFrame = originalInfo.CFrame
+				part.LocalTransparencyModifier = 0
 				if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
 					originalInfo.DataModelMesh.Scale = originalInfo.OriginalMeshScale
 				end
@@ -185,6 +186,7 @@ local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, ori
 				local sign = math.sign(localCFrame.Position:Dot(extrudeAxis))
 				local motion = extrudeAxis * extrudeAmount * 0.5 * sign
 				part.CFrame = localCFrame + motion
+				part.LocalTransparencyModifier = 0
 			end
 		end
 	end
