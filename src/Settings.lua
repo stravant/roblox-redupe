@@ -8,6 +8,7 @@ local PluginGuiTypes = require("./PluginGui/Types")
 export type TemporarySessionSettings = {
 	FinalCopyCount: number,
 	Rotation: CFrame,
+	HasScaledModel: boolean,
 	SelectionIsSinglePart: boolean,
 }
 
@@ -18,6 +19,7 @@ export type RedupeSettings = PluginGuiTypes.PluginGuiSettings & TemporarySession
 	UseSpacing: boolean,
 	MultilySnapByCount: boolean,
 	TouchSide: number,
+	ScaleMode: string,
 	GroupAs: string,
 	AddOriginalToGroup: boolean,
 	ResizeAlign: boolean,
@@ -43,6 +45,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		UseSpacing = if raw.UseSpacing == nil then true else raw.UseSpacing,
 		MultilySnapByCount = if raw.MultilySnapByCount == nil then true else raw.MultilySnapByCount,
 		TouchSide = raw.TouchSide or 1,
+		ScaleMode = raw.ScaleMode or "Extrude",
 		GroupAs = raw.GroupAs or "None",
 		AddOriginalToGroup = if raw.AddOriginalToGroup == nil then true else raw.AddOriginalToGroup,
 		HaveHelp = if raw.HaveHelp ~= nil then raw.HaveHelp else true,
@@ -53,6 +56,7 @@ local function loadSettings(plugin: Plugin): RedupeSettings
 		-- Unsaved values whose initial state does not matter
 		Rotation = CFrame.new(),
 		SelectionIsSinglePart = false,
+		HasScaledModel = false,
 	}
 end
 local function saveSettings(plugin: Plugin, settings: RedupeSettings)
@@ -68,6 +72,7 @@ local function saveSettings(plugin: Plugin, settings: RedupeSettings)
 		UseSpacing = settings.UseSpacing,
 		MultilySnapByCount = settings.MultilySnapByCount,
 		TouchSide = settings.TouchSide,
+		ScaleMode = settings.ScaleMode,
 		GroupAs = settings.GroupAs,
 		AddOriginalToGroup = settings.AddOriginalToGroup,
 		HaveHelp = settings.HaveHelp,

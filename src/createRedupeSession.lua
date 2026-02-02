@@ -173,6 +173,15 @@ local function createRedupeSession(
 	-- Decide if it's a single part selection
 	currentSettings.SelectionIsSinglePart = #info:getObjectsToTransform() == 1
 
+	-- Clear scaled model flag
+	currentSettings.HasScaledModel = false
+	local hasModel = false
+	for _, target in targets do
+		if target:IsA("Model") then
+			hasModel = true
+		end
+	end
+
 	-- Don't need a bounds offset, just a simple bounding box
 	center *= CFrame.new(boundsOffset)
 	boundsOffset = Vector3.zero
@@ -626,7 +635,7 @@ local function createRedupeSession(
 			end
 			runningPosition *= placement.Offset
 			runningPosition = runningPosition:Orthonormalize()
-			local thisCopy = ghostPreview.create(not done, runningPosition, placement.Size, draggerContext.PrimaryAxis)
+			local thisCopy = ghostPreview.create(not done, currentSettings.ScaleMode, runningPosition, placement.Size, draggerContext.PrimaryAxis)
 			local thisInfo = {
 				CFrame = runningPosition,
 				Offset = boundsOffset,
@@ -687,6 +696,10 @@ local function createRedupeSession(
 		return context.EndCFrame, Vector3.zero, Vector3.zero
 	end)
 
+	local function updateHasScaledModel()
+		local hasScaled = not draggerContext.EndSize:FuzzyEq(size)
+		currentSettings.HasScaledModel = hasScaled and hasModel
+	end
 
 	local rootElement = Roact.createElement(DraggerToolComponent, {
 		Mouse = plugin:GetMouse(),
@@ -709,6 +722,7 @@ local function createRedupeSession(
 					ApplyScale = function(deltaSize, deltaOffset)
 						draggerContext.EndSize = draggerContext.StartResizeSize + deltaSize
 						draggerContext.EndDeltaPosition = draggerContext.StartEndResizePosition + deltaOffset
+						updateHasScaledModel()
 						updatePlacement(false)
 						changeSignal:Fire()
 					end,
@@ -718,6 +732,7 @@ local function createRedupeSession(
 						table.insert(undoStack, function()
 							draggerContext.EndSize = revertSize
 							draggerContext.EndDeltaPosition = revertPosition
+							updateHasScaledModel()
 						end)
 					end,
 					Visible = function()

@@ -6,7 +6,7 @@ local JointMaker = (require :: any)(DraggerFramework.Utility.JointMaker)
 
 export type GhostPreview = {
 	hide: () -> (),
-	create: (isPreview: boolean, positionOffset: CFrame, sizeOffset: Vector3, extrudeAxis: Vector3) -> { Instance },
+	create: (isPreview: boolean, scaleMode: string, positionOffset: CFrame, sizeOffset: Vector3, extrudeAxis: Vector3) -> { Instance },
 	trim: () -> (),
 }
 
@@ -71,43 +71,204 @@ end
 -- Returns the amount of size on the axis of interest in basis, and the "rest" of the size
 local function sizeToWorldSpace(basis: CFrame, axisOfInterest: Vector3, size: Vector3): (number, Vector3)
 	-- Take the amount of size on the axis, and leave the rest in rest
-	local xFactor = basis.XVector:Dot(axisOfInterest)
-	local sizeOnX = math.abs(xFactor) * size.X
-	local sizeOffX = (1 - math.abs(xFactor)) * size.X
+	local xFactor = math.abs(basis.XVector:Dot(axisOfInterest))
+	local sizeOnX = xFactor * size.X
+	local sizeOffX = (1 - xFactor) * size.X
 
-	local yFactor = basis.YVector:Dot(axisOfInterest)
-	local sizeOnY = math.abs(yFactor) * size.Y
-	local sizeOffY = (1 - math.abs(yFactor)) * size.Y
+	local yFactor = math.abs(basis.YVector:Dot(axisOfInterest))
+	local sizeOnY = yFactor * size.Y
+	local sizeOffY = (1 - yFactor) * size.Y
 
-	local zFactor = basis.ZVector:Dot(axisOfInterest)
-	local sizeOnZ = math.abs(zFactor) * size.Z
-	local sizeOffZ = (1 - math.abs(zFactor)) * size.Z
+	local zFactor = math.abs(basis.ZVector:Dot(axisOfInterest))
+	local sizeOnZ = zFactor * size.Z
+	local sizeOffZ = (1 - zFactor) * size.Z
 
 	local onAxis = sizeOnX + sizeOnY + sizeOnZ
 	local rest = Vector3.new(sizeOffX, sizeOffY, sizeOffZ)
 	return onAxis, rest
 end
 
-local function sizeToObjectSpace(basis: CFrame, axisOfInterest: Vector3, sizeOnAxis: number): Vector3
-	local xFactor = basis.XVector:Dot(axisOfInterest)
-	local yFactor = basis.YVector:Dot(axisOfInterest)
-	local zFactor = basis.ZVector:Dot(axisOfInterest)
+local function sizeToObjectSpace(basis: CFrame, axisOfInterest: Vector3, size: Vector3, sizeOnAxis: number): Vector3
+	local xFactor = math.abs(basis.XVector:Dot(axisOfInterest)) * size.X
+	local yFactor = math.abs(basis.YVector:Dot(axisOfInterest)) * size.Y
+	local zFactor = math.abs(basis.ZVector:Dot(axisOfInterest)) * size.Z
 
-	local totalFactor = math.abs(xFactor) + math.abs(yFactor) + math.abs(zFactor)
+	local totalFactor = xFactor + yFactor + zFactor
 	if totalFactor == 0 then
 		return Vector3.zero
 	end
-
-	local xPortion = (math.abs(xFactor) / totalFactor)
-	local yPortion = (math.abs(yFactor) / totalFactor)
-	local zPortion = (math.abs(zFactor) / totalFactor)
+	local xPortion = xFactor / totalFactor
+	local yPortion = yFactor / totalFactor
+	local zPortion = zFactor / totalFactor
 
 	return Vector3.new(xPortion, yPortion, zPortion) * sizeOnAxis
 end
 
+local function getOriginalInfo(part: BasePart, original: OriginalSizeMap): OriginalSizeInfo
+	local originalInfo = original[part]
+	if not originalInfo then
+		local mesh = part:FindFirstChildWhichIsA("DataModelMesh")
+		local newInfo = table.freeze({
+			Size = part.Size,
+			CFrame = part.CFrame,
+			DataModelMesh = mesh,
+			OriginalMeshScale = if mesh then mesh.Scale else nil,
+		})
+		original[part] = newInfo
+		originalInfo = newInfo
+	end
+	return originalInfo
+end
+
+local function resetToOriginalInfo(part: BasePart, original: OriginalSizeMap)
+	local originalInfo = original[part]
+	if originalInfo then
+		part.Size = originalInfo.Size
+		part.CFrame = originalInfo.CFrame
+		part.LocalTransparencyModifier = 0
+		if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
+			originalInfo.DataModelMesh.Scale = originalInfo.OriginalMeshScale
+		end
+	end
+end
+
 local EXACTLY_CENTERED_DISAMBIGUATION = 0.01
-local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, original: OriginalSizeMap, isPreview: boolean)
-	-- Find joints that need to be adjusted afterwards. We need to record
+local function extrudePart(part: BasePart, originalInfo: OriginalSizeInfo, extrudeAxis: Vector3, extrudeAmount: number, isPreview: boolean): (CFrame, Vector3)
+	-- Since the model is at origin, the raw part CFrame is already in local space
+	local localCFrame = originalInfo.CFrame
+	local localSize, restOfSize = sizeToWorldSpace(originalInfo.CFrame, extrudeAxis, originalInfo.Size)
+
+	local positionOnAxis = localCFrame.Position:Dot(extrudeAxis)
+	local halfSize = 0.5 * localSize
+	local a = positionOnAxis + halfSize + EXACTLY_CENTERED_DISAMBIGUATION
+	local b = positionOnAxis - halfSize + EXACTLY_CENTERED_DISAMBIGUATION
+	if a * b < 0 then
+		-- Spans zero, extrude
+		local newSizeOnAxis = localSize + extrudeAmount
+		if newSizeOnAxis > 0 then
+			local newSize = sizeToObjectSpace(originalInfo.CFrame, extrudeAxis, originalInfo.Size, newSizeOnAxis) + restOfSize
+			if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
+				originalInfo.DataModelMesh.Scale = (newSize / originalInfo.Size) * originalInfo.OriginalMeshScale
+			end
+			-- Make sure it's shown if it was hidden previously
+			part.LocalTransparencyModifier = 0
+			return originalInfo.CFrame, newSize
+		else
+			-- Collasped to zero, hide or remove it
+			if isPreview then
+				part.LocalTransparencyModifier = 1
+			else
+				part.Parent = nil
+			end
+			return originalInfo.CFrame, originalInfo.Size
+		end
+	else
+		local sign = math.sign(localCFrame.Position:Dot(extrudeAxis))
+		local motion = extrudeAxis * extrudeAmount * 0.5 * sign
+		local newCFrame = localCFrame + motion
+		part.LocalTransparencyModifier = 0
+		return newCFrame, originalInfo.Size
+	end
+end
+
+function resizeWithWorldScale(basis: CFrame, size: Vector3, worldScale: Vector3): Vector3
+	local xDir = basis.XVector:Abs()
+	local yDir = basis.YVector:Abs()
+	local zDir = basis.ZVector:Abs()
+	return size * Vector3.new(
+		(xDir * worldScale).Magnitude,
+		(yDir * worldScale).Magnitude,
+		(zDir * worldScale).Magnitude
+	)
+end
+
+local function resizeModelViaExtrude(model: Model, scaleFactor: Vector3, sizeDelta: Vector3, original: OriginalSizeMap, isPreview: boolean)
+	-- Special case for returning the model to how it was if there's no size delta, because
+	-- we don't have an axis to extrude on in that case.
+	if sizeDelta:FuzzyEq(Vector3.zero) then
+		for _, part in (model:QueryDescendants("BasePart") :: any) :: {BasePart} do
+			resetToOriginalInfo(part, original)
+		end
+	else
+		-- Extrude on the axis with the largest delta
+		local extrudeAxis = largestAxis(sizeDelta)
+		local otherAxis = Vector3.one - extrudeAxis
+		local scaleForOtherAxis = otherAxis * scaleFactor + extrudeAxis
+		local extrudeAmount = sizeDelta:Dot(extrudeAxis)
+
+		for _, part in (model:QueryDescendants("BasePart") :: any) :: {BasePart} do
+			-- Info to scale from
+			local originalInfo = getOriginalInfo(part, original)
+
+			-- Extrude on extrude axis
+			local cframe, size = extrudePart(part, originalInfo, extrudeAxis, extrudeAmount, isPreview)
+			
+			-- Stretch on other axis
+			size = resizeWithWorldScale(cframe, size, scaleForOtherAxis)
+			local position = cframe.Position
+			cframe = cframe.Rotation + position * scaleForOtherAxis
+
+			-- Apply
+			part.Size = size
+			part.CFrame = cframe
+		end
+	end
+end
+
+local function resizeModelViaStretch(model: Model, scaleFactor: Vector3, original: OriginalSizeMap, isPreview: boolean)
+	-- Special case for returning the model to how it was if there's no size delta, because
+	-- we don't have an axis to extrude on in that case.
+	if scaleFactor:FuzzyEq(Vector3.one) then
+		for _, part in (model:QueryDescendants("BasePart") :: any) :: {BasePart} do
+			resetToOriginalInfo(part, original)
+		end
+	else
+		for _, part in (model:QueryDescendants("BasePart") :: any) :: {BasePart} do
+			-- Info to scale from
+			local originalInfo = getOriginalInfo(part, original)
+
+			-- Since the model is at origin, the raw part CFrame is already in local space
+			local localCFrame = originalInfo.CFrame
+			local localSize = originalInfo.Size
+			local newSize = resizeWithWorldScale(originalInfo.CFrame, localSize, scaleFactor)
+			part.Size = newSize
+			part.CFrame = localCFrame.Rotation + localCFrame.Position * scaleFactor
+			if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
+				originalInfo.DataModelMesh.Scale = (newSize / originalInfo.Size) * originalInfo.OriginalMeshScale
+			end
+			-- Make sure it's shown if it was hidden previously (can't happen in this branch
+			-- but can happen if we switched from extrude to stretch)
+			part.LocalTransparencyModifier = 0
+		end
+	end
+end
+
+-- Return the most powerful scaling (up or down) being applied on an axis
+local function largestScale(scaleFactor: Vector3): number
+	local maxScale = math.max(scaleFactor.X, scaleFactor.Y, scaleFactor.Z)
+	local minScale = math.min(scaleFactor.X, scaleFactor.Y, scaleFactor.Z)
+	if 1 / minScale > maxScale then
+		return minScale
+	else
+		return maxScale
+	end
+end
+
+local function resizeModelViaScaleTo(model: Model, scaleFactor: Vector3, original: OriginalSizeMap)
+	-- Restore parts before we do anything if we previously did an edit to the model
+	if next(original) then
+		for _, part in (model:QueryDescendants("BasePart") :: any) :: {BasePart} do
+			resetToOriginalInfo(part, original)
+		end
+		-- Clear so we don't keep restoring unnecessarily
+		table.clear(original)
+	end
+
+	model:ScaleTo(model:GetScale() * largestScale(scaleFactor))
+end
+
+local function scaleModel(model: Model, scaleMode: string, basis: CFrame, originalSize: Vector3, newSize: Vector3, original: OriginalSizeMap, isPreview: boolean)
+	-- Find joints that need to be adjusted afterwards.
 	local toAdjustC0C1: { [JointInstance]: CFrame } = {}
 	for _, joint in (model:QueryDescendants("JointInstance") :: any) :: {JointInstance} do
 		local part0 = joint.Part0
@@ -118,77 +279,21 @@ local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, ori
 		end
 	end
 
-	-- Special case for returning the model to how it was if there's no size delta, because
-	-- we don't have an axis to extrude on in that case.
-	if sizeDelta:FuzzyEq(Vector3.zero) then
-		for _, part in (model:QueryDescendants("BasePart") :: any) :: {BasePart} do
-			local originalInfo = original[part]
-			if originalInfo then
-				part.Size = originalInfo.Size
-				part.CFrame = originalInfo.CFrame
-				part.LocalTransparencyModifier = 0
-				if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
-					originalInfo.DataModelMesh.Scale = originalInfo.OriginalMeshScale
-				end
-			end
-		end
+	local scaleFactor = newSize / originalSize
+	local appliedScale
+	if scaleMode == "Extrude" then
+		local sizeDelta = newSize - originalSize
+		resizeModelViaExtrude(model, scaleFactor, sizeDelta, original, isPreview)
+		appliedScale = Vector3.one
+	elseif scaleMode == "Stretch" then
+		resizeModelViaStretch(model, scaleFactor, original, isPreview)
+		appliedScale = scaleFactor
+	elseif scaleMode == "Uniform" then
+		local initialScale = model:GetScale()
+		resizeModelViaScaleTo(model, scaleFactor, original)
+		appliedScale = Vector3.one * (model:GetScale() / initialScale)
 	else
-		-- Extrude on the axis with the largest delta
-		local extrudeAxis = largestAxis(sizeDelta)
-		local extrudeAmount = sizeDelta:Dot(extrudeAxis)
-
-		-- We only want basis to represent a rotation since we're pivoting the model to the origin
-		-- to have a stable basis for scaling.
-		basis = basis.Rotation
-		for _, part in (model:QueryDescendants("BasePart") :: any) :: {BasePart} do
-			-- Info to scale from
-			local originalInfo = original[part]
-			if not originalInfo then
-				local mesh = part:FindFirstChildWhichIsA("DataModelMesh")
-				local newInfo = table.freeze({
-					Size = part.Size,
-					CFrame = part.CFrame,
-					DataModelMesh = mesh,
-					OriginalMeshScale = if mesh then mesh.Scale else nil,
-				})
-				original[part] = newInfo
-				originalInfo = newInfo
-			end
-
-			-- Since the model is at origin, the raw part CFrame is already in local space
-			local localCFrame = originalInfo.CFrame
-			local localSize, restOfSize = sizeToWorldSpace(originalInfo.CFrame, extrudeAxis, originalInfo.Size)
-
-			local positionOnAxis = localCFrame.Position:Dot(extrudeAxis)
-			local halfSize = 0.5 * localSize
-			local a = positionOnAxis + halfSize + EXACTLY_CENTERED_DISAMBIGUATION
-			local b = positionOnAxis - halfSize + EXACTLY_CENTERED_DISAMBIGUATION
-			if a * b < 0 then
-				-- Spans zero, extrude
-				local newSizeOnAxis = localSize + extrudeAmount
-				if newSizeOnAxis > 0 then
-					local newSize = sizeToObjectSpace(originalInfo.CFrame, extrudeAxis, newSizeOnAxis) + restOfSize
-					part.Size = newSize
-					if originalInfo.DataModelMesh and originalInfo.OriginalMeshScale then
-						originalInfo.DataModelMesh.Scale = (newSize / originalInfo.Size) * originalInfo.OriginalMeshScale
-					end
-					-- Make sure it's shown if it was hidden previously
-					part.LocalTransparencyModifier = 0
-				else
-					-- Collasped to zero, hide or remove it
-					if isPreview then
-						part.LocalTransparencyModifier = 1
-					else
-						part.Parent = nil
-					end
-				end
-			else
-				local sign = math.sign(localCFrame.Position:Dot(extrudeAxis))
-				local motion = extrudeAxis * extrudeAmount * 0.5 * sign
-				part.CFrame = localCFrame + motion
-				part.LocalTransparencyModifier = 0
-			end
-		end
+		error(`Unknown scale mode {scaleMode}`)
 	end
 
 	-- Adjust joints with a C0/C1
@@ -202,6 +307,8 @@ local function extrudeModel(model: Model, basis: CFrame, sizeDelta: Vector3, ori
 			joint.C1 = (part1.CFrame:Inverse() * worldCenter):Orthonormalize()
 		end
 	end
+
+	return appliedScale
 end
 
 local function disableJoints(hierarchy: Instance, jointsToReenable: { WithEnabled })
@@ -303,15 +410,20 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, size: V
 		table.clear(placed)
 	end
 
-	local function adjustSingleInstance(item: Instance, target: Instance, extrudeAxis: Vector3, original: OriginalSizeMap, targetCFrame: CFrame, targetSize: Vector3, isPreview: boolean): boolean
+	local function adjustSingleInstance(item: Instance, target: Instance, scaleMode: string, extrudeAxis: Vector3, original: OriginalSizeMap, targetCFrame: CFrame, targetSize: Vector3, isPreview: boolean): boolean
 		local scale = targetSize / size
 		if target:IsA("Model") then
 			local itemModel = item :: Model
 			local targetModel = target :: Model
 			local pivotInBasis = cframe:ToObjectSpace(targetModel:GetPivot())
 			itemModel:PivotTo(CFrame.identity)
-			extrudeModel(itemModel, cframe, (targetSize - size), original, isPreview)
-			itemModel:PivotTo(targetCFrame * pivotInBasis)
+			-- Note, this call only adds extra work in ScaleTo mode which will be
+			-- uncommon and faster than the other modes to execute so do it for
+			-- implementation simplicity. We're going to scale it again after so
+			-- work could be saved here by not doing two ScaleTo calls each frame.
+			itemModel:ScaleTo(targetModel:GetScale())
+			local appliedScale = scaleModel(itemModel, scaleMode, cframe, size, targetSize, original, isPreview)
+			itemModel:PivotTo(targetCFrame * (pivotInBasis.Rotation + pivotInBasis.Position * appliedScale))
 			return true
 		elseif target:IsA("BasePart") then
 			local itemPart = item :: BasePart
@@ -325,8 +437,8 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, size: V
 		end
 	end
 
-	local function adjustItemRecursive(item: Instance, target: Instance, extrudeAxis: Vector3, original: OriginalSizeMap, targetCFrame: CFrame, targetSize: Vector3, isPreview: boolean)
-		local didAdjust = adjustSingleInstance(item, target, extrudeAxis, original, targetCFrame, targetSize, isPreview)
+	local function adjustItemRecursive(item: Instance, target: Instance, scaleMode: string, extrudeAxis: Vector3, original: OriginalSizeMap, targetCFrame: CFrame, targetSize: Vector3, isPreview: boolean)
+		local didAdjust = adjustSingleInstance(item, target, scaleMode, extrudeAxis, original, targetCFrame, targetSize, isPreview)
 		if not didAdjust then
 			-- Recurse to children
 			local itemChildren = item:GetChildren()
@@ -338,16 +450,16 @@ local function createGhostPreview(targets: { Instance }, cframe: CFrame, size: V
 			assert(#itemChildren == #targetChildren, "Mismatched children count in ghost preview adjustment")
 
 			for i = 1, #itemChildren do
-				adjustItemRecursive(itemChildren[i], targetChildren[i], extrudeAxis, original, targetCFrame, targetSize, isPreview)
+				adjustItemRecursive(itemChildren[i], targetChildren[i], scaleMode, extrudeAxis, original, targetCFrame, targetSize, isPreview)
 			end
 		end
 	end
 
-	local function create(isPreview: boolean, targetCFrame: CFrame, targetSize: Vector3, extrudeAxis: Vector3): { Instance }
+	local function create(isPreview: boolean, scaleMode: string, targetCFrame: CFrame, targetSize: Vector3, extrudeAxis: Vector3): { Instance }
 		local itemToSpawn = getItem(isPreview)
 		for i, clonedTarget in clonedTargets do
 			local item = itemToSpawn.instances[i]
-			adjustItemRecursive(item, clonedTarget, extrudeAxis, itemToSpawn.originalSizeInfo, targetCFrame, targetSize, isPreview)
+			adjustItemRecursive(item, clonedTarget, scaleMode, extrudeAxis, itemToSpawn.originalSizeInfo, targetCFrame, targetSize, isPreview)
 		end
 		-- Non-preview is permanent, don't need them in the placed list
 		if isPreview then

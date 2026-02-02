@@ -470,7 +470,10 @@ local function RotationPanel(props: {
 		}),
 		RotateMode = e(HelpGui.WithHelpIcon, {
 			Help = e(HelpGui.BasicTooltip, {
-				HelpRichText = "Choose what pivot point the rotation uses, the one on the inside, middle, or outside of the curve.\n• Outside tends to be the best for parts.\n• Middle tends to be the best for non-boxy models like trees.\n• Inside has use cases where Z-fighting must be avoided.",
+				HelpRichText = "Choose what pivot point the rotation uses, the one on the inside, middle, or outside of the curve." ..
+					"\n• <b>Outside</b> tends to be the best for parts." ..
+					"\n• <b>Middle</b> tends to be the best for non-boxy models like trees." ..
+					"\n• <b>Inside</b> has use cases where Z-fighting must be avoided.",
 			}),
 			Subject = e(RotateModeToggle, {
 				CurrentSettings = currentSettings,
@@ -589,6 +592,84 @@ local function ResultPanel(props: {
 	})
 end
 
+-- React component to pick between Extrude, Stretch, or Uniform
+local function ScaleModeToggle(props: {
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	LayoutOrder: number?,
+})
+	local settings = props.CurrentSettings
+
+	return e("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		BorderSizePixel = 0,
+		BackgroundColor3 = Colors.ACTION_BLUE,
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, {
+		ListLayout = e("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		Corner = e("UICorner", {
+			CornerRadius = UDim.new(0, 4),
+		}),
+		NoneOption = e(ChipForToggle, {
+			Text = "Extrude",
+			IsCurrent = settings.ScaleMode == "Extrude",
+			LayoutOrder = 1,
+			OnClick = function()
+				settings.ScaleMode = "Extrude"
+				props.UpdatedSettings()
+			end,
+		}),
+		ModelOption = e(ChipForToggle, {
+			Text = "Stretch",
+			IsCurrent = settings.ScaleMode == "Stretch",
+			LayoutOrder = 2,
+			OnClick = function()
+				settings.ScaleMode = "Stretch"
+				props.UpdatedSettings()
+			end,
+		}),
+		FolderOption = e(ChipForToggle, {
+			Text = ":ScaleTo",
+			IsCurrent = settings.ScaleMode == "Uniform",
+			LayoutOrder = 3,
+			OnClick = function()
+				settings.ScaleMode = "Uniform"
+				props.UpdatedSettings()
+			end,
+		}),
+	})
+end
+
+local function ModelScaleModePanel(props: {
+	CurrentSettings: Settings.RedupeSettings,
+	UpdatedSettings: () -> (),
+	LayoutOrder: number?,
+})
+	return e(SubPanel, {
+		Title = "Model Resize Mode",
+		LayoutOrder = props.LayoutOrder,
+		Padding = UDim.new(0, 4),
+	}, {
+		GroupAs = e(HelpGui.WithHelpIcon, {
+			Help = e(HelpGui.BasicTooltip, {
+				HelpRichText = "How should a Model be Resized?" ..
+					"\n• <b>Extrude</b>: Expand the middle of the model leaving the ends untouched to preserve the sizing of details (best for axis-aligned content)." ..
+					"\n• <b>Stretch</b>: Scale every part in the model equally along the resized axis (best for organic shapes)." ..
+					'\n• <b>ScaleTo</b>: Scale <i>uniformly</i> using the engine\'s <b>:ScaleTo()</b> API (can be useful for foliage).',
+			}),
+			Subject = e(ScaleModeToggle, {
+				CurrentSettings = props.CurrentSettings,
+				UpdatedSettings = props.UpdatedSettings,
+			}),
+			LayoutOrder = 1,
+		}),
+	})
+end
+
 local REDUPE_CONFIG: PluginGuiTypes.PluginGuiConfig = {
 	PluginName = "Redupe",
 	PendingText = "Select at least one Part, Model, or Folder to duplicate.\nThen drag the handles to add or configure duplicates and hit Place to confirm.",
@@ -643,6 +724,11 @@ local function RedupeGui(props: {
 			CurrentSettings = currentSettings,
 			UpdatedSettings = updatedSettings,
 			ResizeAlignSpacingConflict = willResizeAlign and resizeAlignConflict,
+			LayoutOrder = nextOrder(),
+		}),
+		ModelScaleModePanel = currentSettings.HasScaledModel and e(ModelScaleModePanel, {
+			CurrentSettings = currentSettings,
+			UpdatedSettings = updatedSettings,
 			LayoutOrder = nextOrder(),
 		}),
 		RotationPanel = e(RotationPanel, {
